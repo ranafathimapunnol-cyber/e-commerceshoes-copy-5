@@ -1,91 +1,48 @@
 from rest_framework import serializers
-from .models import Product
+from .models import Product, Category, SubCategory, Cart
 
 
-class ProductSerializer(serializers.Serializer):
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = '__all__'
 
-    id = serializers.IntegerField(read_only=True)
 
-    name = serializers.CharField(max_length=255)
+class SubCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubCategory
+        fields = '__all__'
 
-    brand = serializers.CharField(max_length=255)
 
-    category = serializers.CharField(max_length=20)
+class ProductSerializer(serializers.ModelSerializer):
+    category = CategorySerializer(read_only=True)
+    sub_category = SubCategorySerializer(read_only=True)
 
-    description = serializers.CharField()
+    class Meta:
+        model = Product
+        fields = '__all__'
 
-    price = serializers.DecimalField(
-        max_digits=10,
-        decimal_places=2
-    )
 
-    stock = serializers.IntegerField()
+class CartSerializer(serializers.ModelSerializer):
+    product_name = serializers.ReadOnlyField(source='product.name')
+    product_price = serializers.ReadOnlyField(source='product.price')
+    product_image = serializers.SerializerMethodField()
 
-    size = serializers.CharField(max_length=50)
+    class Meta:
+        model = Cart
+        fields = [
+            'id',
+            'user',
+            'product',
+            'product_name',
+            'product_price',
+            'product_image',
+            'quantity',
+        ]
+        read_only_fields = ['user']
 
-    color = serializers.CharField(max_length=100)
-
-    image = serializers.ImageField(
-        required=False
-    )
-
-    is_featured = serializers.BooleanField(default=False)
-
-    created_at = serializers.DateTimeField(read_only=True)
-
-    updated_at = serializers.DateTimeField(read_only=True)
-
-    def create(self, validated_data):
-
-        return Product.objects.create(**validated_data)
-
-    def update(self, instance, validated_data):
-
-        instance.name = validated_data.get(
-            'name',
-            instance.name
-        )
-
-        instance.brand = validated_data.get(
-            'brand',
-            instance.brand
-        )
-
-        instance.category = validated_data.get(
-            'category',
-            instance.category
-        )
-
-        instance.description = validated_data.get(
-            'description',
-            instance.description
-        )
-
-        instance.price = validated_data.get(
-            'price',
-            instance.price
-        )
-
-        instance.stock = validated_data.get(
-            'stock',
-            instance.stock
-        )
-
-        instance.size = validated_data.get(
-            'size',
-            instance.size
-        )
-
-        instance.color = validated_data.get(
-            'color',
-            instance.color
-        )
-
-        instance.is_featured = validated_data.get(
-            'is_featured',
-            instance.is_featured
-        )
-
-        instance.save()
-
-        return instance
+    def get_product_image(self, obj):
+        request = self.context.get('request')
+        if obj.product.image:
+            return request.build_absolute_uri(obj.product.image.url)
+        return None
