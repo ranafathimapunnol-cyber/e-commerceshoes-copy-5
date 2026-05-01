@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import status
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from .models import Product, Category, SubCategory, Cart
 from .serializers import (
@@ -11,10 +11,10 @@ from .serializers import (
     CartSerializer
 )
 
-
 # =========================
 # CATEGORY
 # =========================
+
 
 @api_view(['GET'])
 def getCategories(request):
@@ -37,15 +37,15 @@ def getSubCategories(request, category_id):
 # =========================
 # PRODUCTS
 # =========================
-
 @api_view(['GET'])
 def getProducts(request):
-    sub_category = request.GET.get('sub_category')
 
-    if sub_category:
-        products = Product.objects.filter(sub_category_id=sub_category)
-    else:
-        products = Product.objects.all()
+    category = request.GET.get('category')
+
+    products = Product.objects.all()
+
+    if category:
+        products = products.filter(category__name__iexact=category)
 
     serializer = ProductSerializer(products, many=True)
     return Response(serializer.data)
@@ -61,70 +61,44 @@ def getProduct(request, pk):
         return Response({"error": "Not found"}, status=404)
 
 
-@api_view(['POST'])
-def createProduct(request):
-    serializer = ProductSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=201)
-    return Response(serializer.errors, status=400)
-
-
-@api_view(['PUT'])
-def updateProduct(request, pk):
-    try:
-        product = Product.objects.get(id=pk)
-    except Product.DoesNotExist:
-        return Response({"error": "Not found"}, status=404)
-
-    serializer = ProductSerializer(product, data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=400)
-
-
-@api_view(['DELETE'])
-def deleteProduct(request, pk):
-    try:
-        product = Product.objects.get(id=pk)
-        product.delete()
-        return Response({"message": "Deleted"})
-    except Product.DoesNotExist:
-        return Response({"error": "Not found"}, status=404)
-
-
 # =========================
-# CART
+# CART (AUTH REQUIRED)
 # =========================
 
 class CartListView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         cart_items = Cart.objects.filter(user=request.user)
-        serializer = CartSerializer(
-            cart_items, many=True, context={'request': request})
+        serializer = CartSerializer(cart_items, many=True)
         return Response(serializer.data)
 
 
 class AddToCartView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
-        user = request.user
         product_id = request.data.get('product')
 
+        if not product_id:
+            return Response({'error': 'Product ID required'}, status=400)
+
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({'error': 'Product not found'}, status=404)
+
         cart_item, created = Cart.objects.get_or_create(
-            user=user,
-            product_id=product_id
+            user=request.user,
+            product=product
         )
 
-        if not created:
-            cart_item.quantity += 1
-            cart_item.save()
-
-        serializer = CartSerializer(cart_item, context={'request': request})
-        return Response(serializer.data, status=201)
+        return Response({'message': 'Added to cart'}, status=201)
 
 
 class RemoveCartItemView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def delete(self, request, pk):
         try:
             item = Cart.objects.get(id=pk, user=request.user)

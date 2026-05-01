@@ -129,13 +129,22 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.AllowAny",
     ),
 }
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
 ]
 AUTH_USER_MODEL = 'users.User'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+CORS_ALLOW_ALL_ORIGINS = True  # (for development only)
+CORS_ALLOW_HEADERS = [
+    "authorization",
+    "content-type",
+]

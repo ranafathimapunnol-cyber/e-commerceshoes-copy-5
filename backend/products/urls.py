@@ -1,33 +1,19 @@
 from django.urls import path
-from .views import (
-    getCategories,
-    getSubCategories,
-    getProducts,
-    getProduct,
-    createProduct,
-    updateProduct,
-    deleteProduct,
-    CartListView,
-    AddToCartView,
-    RemoveCartItemView
-)
+from . import views
 
 urlpatterns = [
-    # CATEGORY
-    path('categories/', getCategories),
-
-    # SUBCATEGORY
-    path('subcategories/<int:category_id>/', getSubCategories),
-
     # PRODUCTS
-    path('', getProducts),
-    path('<int:pk>/', getProduct),
-    path('create/', createProduct),
-    path('update/<int:pk>/', updateProduct),
-    path('delete/<int:pk>/', deleteProduct),
+    path('', views.getProducts, name='products'),
+    path('<int:pk>/', views.getProduct, name='product-detail'),
+
+    # CATEGORY
+    path('categories/', views.getCategories, name='categories'),
+    path('categories/<int:category_id>/sub/',
+         views.getSubCategories, name='subcategories'),
 
     # CART
-    path('cart/', CartListView.as_view()),
-    path('cart/add/', AddToCartView.as_view()),
-    path('cart/remove/<int:pk>/', RemoveCartItemView.as_view()),
+    path('cart/', views.CartListView.as_view(), name='cart'),
+    path('cart/add/', views.AddToCartView.as_view(), name='cart-add'),
+    path('cart/remove/<int:pk>/',
+         views.RemoveCartItemView.as_view(), name='cart-remove'),
 ]
