@@ -1,3 +1,5 @@
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from django.urls import path
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -10,7 +12,8 @@ urlpatterns = [
     path('api/products/', include('products.urls')),
 
     path('api/users/', include('users.urls')),
-
+    path('api/token/', TokenObtainPairView.as_view()),
+    path('api/token/refresh/', TokenRefreshView.as_view()),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
