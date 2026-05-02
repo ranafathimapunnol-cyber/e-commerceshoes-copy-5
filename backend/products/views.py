@@ -1,21 +1,18 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework import status
 
-from .models import Product, Category, SubCategory, Cart
+from .models import Product, Category, SubCategory
 from .serializers import (
     ProductSerializer,
     CategorySerializer,
-    SubCategorySerializer,
-    CartSerializer
+    SubCategorySerializer
 )
 
-# =========================
-# CATEGORY
-# =========================
 
-
+# =========================
+# GET ALL CATEGORIES
+# =========================
 @api_view(['GET'])
 def getCategories(request):
     categories = Category.objects.all()
@@ -24,85 +21,71 @@ def getCategories(request):
 
 
 # =========================
-# SUB CATEGORY
+# GET SUBCATEGORIES
 # =========================
-
 @api_view(['GET'])
 def getSubCategories(request, category_id):
-    subs = SubCategory.objects.filter(category_id=category_id)
-    serializer = SubCategorySerializer(subs, many=True)
+    subcategories = SubCategory.objects.filter(category_id=category_id)
+    serializer = SubCategorySerializer(subcategories, many=True)
     return Response(serializer.data)
 
 
 # =========================
-# PRODUCTS
+# GET ALL PRODUCTS (FIXED FILTERING)
 # =========================
 @api_view(['GET'])
 def getProducts(request):
-
     category = request.GET.get('category')
+    sub_category = request.GET.get('sub_category')
+    search = request.GET.get('search')
 
     products = Product.objects.all()
 
+    # =========================
+    # CATEGORY FILTER (ROBUST)
+    # supports BOTH id and name
+    # =========================
     if category:
-        products = products.filter(category__name__iexact=category)
+        category = category.strip()
+
+        if category.isdigit():
+            products = products.filter(category_id=category)
+        else:
+            products = products.filter(category__name__iexact=category)
+
+    # =========================
+    # SUBCATEGORY FILTER
+    # =========================
+    if sub_category:
+        sub_category = sub_category.strip()
+
+        if sub_category.isdigit():
+            products = products.filter(sub_category_id=sub_category)
+        else:
+            products = products.filter(sub_category__name__iexact=sub_category)
+
+    # =========================
+    # SEARCH FILTER
+    # =========================
+    if search:
+        products = products.filter(name__icontains=search)
 
     serializer = ProductSerializer(products, many=True)
     return Response(serializer.data)
 
 
+# =========================
+# GET SINGLE PRODUCT
+# =========================
 @api_view(['GET'])
 def getProduct(request, pk):
     try:
         product = Product.objects.get(id=pk)
         serializer = ProductSerializer(product)
         return Response(serializer.data)
+
     except Product.DoesNotExist:
-        return Response({"error": "Not found"}, status=404)
-
-
-# =========================
-# CART (AUTH REQUIRED)
-# =========================
-
-class CartListView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        cart_items = Cart.objects.filter(user=request.user)
-        serializer = CartSerializer(cart_items, many=True)
-        return Response(serializer.data)
-
-
-class AddToCartView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        product_id = request.data.get('product')
-
-        if not product_id:
-            return Response({'error': 'Product ID required'}, status=400)
-
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return Response({'error': 'Product not found'}, status=404)
-
-        cart_item, created = Cart.objects.get_or_create(
-            user=request.user,
-            product=product
+        return Response(
+            {"error": "Product not found"},
+            status=status.HTTP_404_NOT_FOUND
         )
-
-        return Response({'message': 'Added to cart'}, status=201)
-
-
-class RemoveCartItemView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def delete(self, request, pk):
-        try:
-            item = Cart.objects.get(id=pk, user=request.user)
-            item.delete()
-            return Response({"message": "Removed"})
-        except Cart.DoesNotExist:
-            return Response({"error": "Not found"}, status=404)
