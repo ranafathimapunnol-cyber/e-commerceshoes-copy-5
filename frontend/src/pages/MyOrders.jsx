@@ -14,6 +14,12 @@ import {
     Package,
     MapPin,
     CreditCard,
+    ChevronRight,
+    Zap,
+    Navigation,
+    Home,
+    Box,
+    AlertCircle,
 } from 'lucide-react';
 
 function MyOrders() {
@@ -50,29 +56,102 @@ function MyOrders() {
         }
     };
 
-    const getStatusConfig = (status) => {
-        const configs = {
-            pending: { icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-100', label: 'Pending', step: 1 },
-            confirmed: { icon: CheckCircle, color: 'text-blue-600', bg: 'bg-blue-100', label: 'Confirmed', step: 2 },
-            shipped: { icon: Truck, color: 'text-purple-600', bg: 'bg-purple-100', label: 'Shipped', step: 3 },
-            delivered: { icon: Package, color: 'text-green-600', bg: 'bg-green-100', label: 'Delivered', step: 4 },
-            cancelled: { icon: XCircle, color: 'text-red-600', bg: 'bg-red-100', label: 'Cancelled', step: 0 },
+    // Complete status tracking system
+    const getTrackingStatus = (status) => {
+        const trackingSteps = {
+            pending: {
+                label: 'Order Placed',
+                icon: Clock,
+                color: 'text-orange-500',
+                bg: 'bg-orange-50',
+                progress: 0,
+                description: 'Your order has been received and is waiting for confirmation',
+            },
+            confirmed: {
+                label: 'Order Confirmed',
+                icon: CheckCircle,
+                color: 'text-blue-500',
+                bg: 'bg-blue-50',
+                progress: 25,
+                description: 'Your order has been confirmed and is being processed',
+            },
+            processing: {
+                label: 'Processing',
+                icon: Package,
+                color: 'text-purple-500',
+                bg: 'bg-purple-50',
+                progress: 50,
+                description: 'Your order is being prepared for shipment',
+            },
+            shipped: {
+                label: 'Shipped',
+                icon: Truck,
+                color: 'text-indigo-500',
+                bg: 'bg-indigo-50',
+                progress: 75,
+                description: 'Your order has been dispatched and is on its way',
+            },
+            out_for_delivery: {
+                label: 'Out for Delivery',
+                icon: Navigation,
+                color: 'text-teal-500',
+                bg: 'bg-teal-50',
+                progress: 90,
+                description: 'Your order is out for delivery today',
+            },
+            delivered: {
+                label: 'Delivered',
+                icon: Home,
+                color: 'text-green-500',
+                bg: 'bg-green-50',
+                progress: 100,
+                description: 'Your order has been successfully delivered',
+            },
+            cancelled: {
+                label: 'Cancelled',
+                icon: XCircle,
+                color: 'text-red-500',
+                bg: 'bg-red-50',
+                progress: 0,
+                description: 'Your order has been cancelled',
+            },
         };
-        return configs[status] || configs['pending'];
+        return trackingSteps[status] || trackingSteps['pending'];
     };
 
-    const getProgressWidth = (status) => {
-        const steps = { pending: 25, confirmed: 50, shipped: 75, delivered: 100, cancelled: 0 };
-        return steps[status] || 0;
+    // Get estimated delivery date
+    const getEstimatedDelivery = (order) => {
+        if (order.status === 'delivered') return 'Delivered';
+        if (order.status === 'cancelled') return 'Cancelled';
+
+        const orderDate = new Date(order.created_at);
+        const estimatedDate = new Date(orderDate);
+        estimatedDate.setDate(orderDate.getDate() + 5);
+
+        return estimatedDate.toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        });
     };
 
-    // Helper function to get item price
+    // Get delivery progress percentage
+    const getDeliveryProgress = (status) => {
+        const progress = {
+            pending: 0,
+            confirmed: 25,
+            processing: 50,
+            shipped: 75,
+            out_for_delivery: 90,
+            delivered: 100,
+        };
+        return progress[status] || 0;
+    };
+
     const getItemPrice = (item) => {
-        // Try different possible price fields
         return item.price || item.product?.price || item.item_price || 0;
     };
 
-    // Helper function to get item total
     const getItemTotal = (item) => {
         const price = getItemPrice(item);
         return price * item.quantity;
@@ -99,7 +178,7 @@ function MyOrders() {
                     </div>
                     <div>
                         <h1 className="text-3xl md:text-4xl font-bold tracking-tighter text-black">My Orders</h1>
-                        <p className="text-gray-500 text-sm mt-1">Track and manage all your orders</p>
+                        <p className="text-gray-500 text-sm mt-1">Track your orders in real-time</p>
                     </div>
                 </div>
 
@@ -117,24 +196,26 @@ function MyOrders() {
                 ) : (
                     <div className="space-y-6">
                         {orders.map((order) => {
-                            const statusConfig = getStatusConfig(order.status);
-                            const StatusIcon = statusConfig.icon;
+                            const trackingStatus = getTrackingStatus(order.status);
+                            const StatusIcon = trackingStatus.icon;
+                            const deliveryProgress = getDeliveryProgress(order.status);
+                            const estimatedDelivery = getEstimatedDelivery(order);
 
                             return (
                                 <div
                                     key={order.id}
                                     className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition">
                                     {/* Order Header */}
-                                    <div className="p-5 border-b border-gray-100">
+                                    <div className="p-5 border-b border-gray-100 bg-gradient-to-r from-white to-gray-50">
                                         <div className="flex flex-wrap justify-between items-center gap-4">
                                             <div>
-                                                <p className="text-xs text-gray-400">Order #{order.id}</p>
-                                                <div className="flex items-center gap-3 mt-1">
+                                                <p className="text-xs text-gray-400 font-mono">Order #{order.id}</p>
+                                                <div className="flex items-center gap-3 mt-1 flex-wrap">
                                                     <div
-                                                        className={`px-3 py-1 rounded-full ${statusConfig.bg} flex items-center gap-1`}>
-                                                        <StatusIcon size={12} className={statusConfig.color} />
-                                                        <span className={`text-xs font-semibold ${statusConfig.color}`}>
-                                                            {statusConfig.label}
+                                                        className={`px-3 py-1 rounded-full ${trackingStatus.bg} flex items-center gap-1.5`}>
+                                                        <StatusIcon size={12} className={trackingStatus.color} />
+                                                        <span className={`text-xs font-semibold ${trackingStatus.color}`}>
+                                                            {trackingStatus.label}
                                                         </span>
                                                     </div>
                                                     <div className="flex items-center gap-1 text-xs text-gray-400">
@@ -159,21 +240,61 @@ function MyOrders() {
                                         </div>
                                     </div>
 
-                                    {/* Progress Bar */}
+                                    {/* Tracking Progress Bar */}
                                     {order.status !== 'cancelled' && order.status !== 'delivered' && (
-                                        <div className="px-5 pt-4">
-                                            <div className="flex justify-between mb-2">
-                                                <span className="text-xs text-gray-400">Pending</span>
-                                                <span className="text-xs text-gray-400">Confirmed</span>
-                                                <span className="text-xs text-gray-400">Shipped</span>
-                                                <span className="text-xs text-gray-400">Delivered</span>
+                                        <div className="px-5 pt-5">
+                                            <div className="flex justify-between mb-2 text-[10px] md:text-xs">
+                                                <span
+                                                    className={`${deliveryProgress >= 0 ? 'text-black font-medium' : 'text-gray-400'}`}>
+                                                    Ordered
+                                                </span>
+                                                <span
+                                                    className={`${deliveryProgress >= 25 ? 'text-black font-medium' : 'text-gray-400'}`}>
+                                                    Confirmed
+                                                </span>
+                                                <span
+                                                    className={`${deliveryProgress >= 50 ? 'text-black font-medium' : 'text-gray-400'}`}>
+                                                    Processing
+                                                </span>
+                                                <span
+                                                    className={`${deliveryProgress >= 75 ? 'text-black font-medium' : 'text-gray-400'}`}>
+                                                    Shipped
+                                                </span>
+                                                <span
+                                                    className={`${deliveryProgress >= 90 ? 'text-black font-medium' : 'text-gray-400'}`}>
+                                                    Out for Delivery
+                                                </span>
+                                                <span
+                                                    className={`${deliveryProgress >= 100 ? 'text-black font-medium' : 'text-gray-400'}`}>
+                                                    Delivered
+                                                </span>
                                             </div>
                                             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                                                 <div
-                                                    className="h-full bg-black rounded-full transition-all duration-500"
-                                                    style={{ width: `${getProgressWidth(order.status)}%` }}
+                                                    className="h-full bg-gradient-to-r from-green-500 to-green-600 rounded-full transition-all duration-700"
+                                                    style={{ width: `${deliveryProgress}%` }}
                                                 />
                                             </div>
+                                            <div className="flex justify-between mt-2">
+                                                <p className="text-xs text-green-600 font-medium flex items-center gap-1">
+                                                    <Zap size={10} />
+                                                    {deliveryProgress}% Complete
+                                                </p>
+                                                <p className="text-xs text-gray-400 flex items-center gap-1">
+                                                    <Truck size={10} />
+                                                    Est. Delivery: {estimatedDelivery}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Delivery Status Message */}
+                                    {order.status !== 'cancelled' && (
+                                        <div className="px-5 pt-3">
+                                            <p className="text-xs text-gray-500 flex items-center gap-1">
+                                                <AlertCircle size={10} className="text-blue-500" />
+                                                {trackingStatus.description}
+                                            </p>
                                         </div>
                                     )}
 
@@ -197,9 +318,6 @@ function MyOrders() {
                                                                 {item.product?.name || 'Product'}
                                                             </h4>
                                                             <p className="text-sm text-gray-400">Qty: {item.quantity}</p>
-                                                            <p className="text-xs text-gray-400">
-                                                                ₹{getItemPrice(item)} each
-                                                            </p>
                                                         </div>
                                                         <p className="font-semibold">
                                                             ₹{getItemTotal(item).toLocaleString()}
@@ -211,9 +329,6 @@ function MyOrders() {
                                                     +{order.items.length - 2} more items
                                                 </p>
                                             )}
-                                            {(!order.items || order.items.length === 0) && (
-                                                <p className="text-sm text-gray-400 text-center">No items found</p>
-                                            )}
                                         </div>
 
                                         {/* View Details Button */}
@@ -221,7 +336,7 @@ function MyOrders() {
                                             onClick={() => setSelectedOrder(order)}
                                             className="mt-4 w-full py-2 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition flex items-center justify-center gap-2">
                                             <Eye size={14} />
-                                            View Order Details
+                                            Track Order
                                         </button>
                                     </div>
                                 </div>
@@ -231,41 +346,42 @@ function MyOrders() {
                 )}
             </div>
 
-            {/* Order Details Modal */}
+            {/* Order Details Modal with Enhanced Tracking */}
             {selectedOrder && (
                 <OrderDetailsModal
                     order={selectedOrder}
                     onClose={() => setSelectedOrder(null)}
                     getItemPrice={getItemPrice}
                     getItemTotal={getItemTotal}
+                    getTrackingStatus={getTrackingStatus}
                 />
             )}
         </div>
     );
 }
 
-// Order Details Modal Component
-const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
-    const statusConfig = {
-        pending: { icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
-        confirmed: { icon: CheckCircle, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
-        shipped: { icon: Truck, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' },
-        delivered: { icon: Package, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200' },
-        cancelled: { icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' },
-    };
-    const config = statusConfig[order.status] || statusConfig['pending'];
-    const StatusIcon = config.icon;
+// Order Details Modal Component with Enhanced Tracking
+const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal, getTrackingStatus }) => {
+    const trackingSteps = [
+        { key: 'pending', label: 'Order Placed', icon: Clock, date: order.created_at },
+        { key: 'confirmed', label: 'Order Confirmed', icon: CheckCircle },
+        { key: 'processing', label: 'Processing', icon: Package },
+        { key: 'shipped', label: 'Shipped', icon: Truck },
+        { key: 'out_for_delivery', label: 'Out for Delivery', icon: Navigation },
+        { key: 'delivered', label: 'Delivered', icon: Home },
+    ];
 
-    // Status display name
-    const getStatusDisplay = (status) => {
-        const names = {
-            pending: 'Pending',
-            confirmed: 'Confirmed',
-            shipped: 'Shipped',
-            delivered: 'Delivered',
-            cancelled: 'Cancelled',
-        };
-        return names[status] || status;
+    const orderStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered'];
+    const currentStepIndex = orderStatuses.indexOf(order.status);
+
+    const getStatusColor = (stepIndex) => {
+        if (stepIndex < currentStepIndex) return 'bg-green-500 text-white';
+        if (stepIndex === currentStepIndex) return 'bg-black text-white';
+        return 'bg-gray-200 text-gray-400';
+    };
+
+    const getLineColor = (stepIndex) => {
+        return stepIndex < currentStepIndex ? 'bg-green-500' : 'bg-gray-200';
     };
 
     return (
@@ -283,40 +399,60 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
                 </div>
 
                 <div className="p-5 space-y-6">
-                    {/* Status Banner */}
-                    <div className={`${config.bg} border ${config.border} rounded-xl p-4 flex items-center gap-3`}>
-                        <StatusIcon size={24} className={config.color} />
-                        <div>
-                            <p className="font-semibold">Order Status: {getStatusDisplay(order.status)}</p>
-                            {order.tracking_number && (
-                                <p className="text-sm text-gray-500">Tracking: {order.tracking_number}</p>
-                            )}
-                        </div>
-                    </div>
+                    {/* Enhanced Tracking Timeline */}
+                    <div className="bg-gradient-to-r from-gray-50 to-white rounded-xl p-5">
+                        <h3 className="font-semibold text-gray-800 mb-5 flex items-center gap-2">
+                            <Truck size={16} />
+                            Order Tracking Timeline
+                        </h3>
 
-                    {/* Order Timeline */}
-                    <div>
-                        <h3 className="font-semibold mb-3">Order Timeline</h3>
-                        <div className="space-y-3">
-                            {['pending', 'confirmed', 'shipped', 'delivered'].map((status, index) => {
-                                const statusOrder = ['pending', 'confirmed', 'shipped', 'delivered'];
-                                const isCompleted = statusOrder.indexOf(order.status) >= index;
-                                const statusNames = {
-                                    pending: 'Order Placed',
-                                    confirmed: 'Order Confirmed',
-                                    shipped: 'Order Shipped',
-                                    delivered: 'Order Delivered',
-                                };
+                        <div className="relative">
+                            {trackingSteps.map((step, idx) => {
+                                const StepIcon = step.icon;
+                                const isCompleted = idx <= currentStepIndex;
+                                const isCurrent = idx === currentStepIndex;
+
                                 return (
-                                    <div key={status} className="flex items-center gap-3">
+                                    <div key={step.key} className="relative flex items-start gap-4 mb-6 last:mb-0">
+                                        {/* Vertical line */}
+                                        {idx < trackingSteps.length - 1 && (
+                                            <div
+                                                className={`absolute left-5 top-8 w-0.5 h-12 transition-colors duration-500 ${
+                                                    idx < currentStepIndex ? 'bg-green-500' : 'bg-gray-200'
+                                                }`}
+                                                style={{ left: '20px' }}
+                                            />
+                                        )}
+
+                                        {/* Icon */}
                                         <div
-                                            className={`w-6 h-6 rounded-full flex items-center justify-center ${isCompleted ? 'bg-green-500' : 'bg-gray-300'}`}>
-                                            {isCompleted && <CheckCircle size={14} className="text-white" />}
+                                            className={`z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
+                                                isCurrent
+                                                    ? 'bg-black text-white ring-4 ring-black/20 scale-110'
+                                                    : isCompleted
+                                                      ? 'bg-green-500 text-white'
+                                                      : 'bg-gray-200 text-gray-400'
+                                            }`}>
+                                            <StepIcon size={16} />
                                         </div>
-                                        <div>
-                                            <p className={`font-medium ${isCompleted ? 'text-gray-800' : 'text-gray-400'}`}>
-                                                {statusNames[status]}
+
+                                        {/* Content */}
+                                        <div className="flex-1 pb-4">
+                                            <p
+                                                className={`font-semibold ${isCompleted ? 'text-gray-800' : 'text-gray-400'}`}>
+                                                {step.label}
                                             </p>
+                                            {isCurrent && <p className="text-xs text-green-600 mt-1">Current Status</p>}
+                                            {step.key === 'pending' && (
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    {new Date(step.date).toLocaleString()}
+                                                </p>
+                                            )}
+                                            {step.key === order.status && order.updated_at && (
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    {new Date(order.updated_at).toLocaleString()}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -324,7 +460,25 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
                         </div>
                     </div>
 
-                    {/* Shipping Info */}
+                    {/* Delivery Progress Summary */}
+                    {order.status !== 'cancelled' && order.status !== 'delivered' && (
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-semibold text-blue-800">Delivery Progress</p>
+                                <p className="text-sm font-bold text-blue-800">
+                                    {Math.round(((currentStepIndex + 1) / trackingSteps.length) * 100)}%
+                                </p>
+                            </div>
+                            <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
+                                    style={{ width: `${((currentStepIndex + 1) / trackingSteps.length) * 100}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Shipping Address */}
                     <div className="border-t pt-4">
                         <h3 className="font-semibold mb-2 flex items-center gap-2">
                             <MapPin size={14} /> Shipping Address
@@ -356,7 +510,7 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
                                                     ? `http://127.0.0.1:8000${item.product.image}`
                                                     : '/api/placeholder/60/60'
                                             }
-                                            className="w-16 h-16 rounded-lg object-cover"
+                                            className="w-16 h-16 rounded-lg object-cover bg-gray-100"
                                             alt={item.product?.name}
                                         />
                                         <div className="flex-1">
@@ -367,9 +521,6 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
                                         <p className="font-semibold">₹{getItemTotal(item).toLocaleString()}</p>
                                     </div>
                                 ))}
-                            {(!order.items || order.items.length === 0) && (
-                                <p className="text-sm text-gray-400 text-center">No items found</p>
-                            )}
                         </div>
                     </div>
 

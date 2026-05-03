@@ -27,10 +27,11 @@ function VideoShowcase() {
         },
     ];
 
+    // ✅ FIXED ONLY THIS PART
     const handleShopNow = () => {
-        const userInfo = localStorage.getItem('userInfo');
+        const token = localStorage.getItem('access');
 
-        if (!userInfo) {
+        if (!token) {
             navigate('/login');
         } else {
             navigate('/products');

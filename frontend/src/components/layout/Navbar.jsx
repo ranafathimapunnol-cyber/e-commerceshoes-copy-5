@@ -56,7 +56,7 @@ function PremiumBlackWhiteNavbar() {
         const updateColor = () => {
             const scrollY = window.scrollY;
 
-            if (scrollY < 730) setNavTextColor('white');
+            if (scrollY < 735) setNavTextColor('white');
             else if (scrollY < 2110) setNavTextColor('black');
             else if (scrollY < 3720) setNavTextColor('white');
             else setNavTextColor('black');
@@ -131,9 +131,6 @@ function PremiumBlackWhiteNavbar() {
                 {/* RIGHT ICONS */}
                 <div className={`flex items-center gap-4 ${textColorClass}`}>
                     {/* SEARCH */}
-                    <button>
-                        <Search size={18} />
-                    </button>
 
                     {/* WISHLIST */}
                     {isLoggedIn && (
