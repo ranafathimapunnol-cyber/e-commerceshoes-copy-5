@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -18,6 +18,11 @@ import {
     Shield,
     Clock,
     ChevronRight,
+    Camera,
+    X,
+    Save,
+    AlertCircle,
+    CheckCircle,
 } from 'lucide-react';
 
 function Profile() {
@@ -26,39 +31,119 @@ function Profile() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
+    const [isEditing, setIsEditing] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [saveLoading, setSaveLoading] = useState(false);
+    const [successMessage, setSuccessMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+    const fileInputRef = useRef(null);
+
+    const [editForm, setEditForm] = useState({
+        username: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        pincode: '',
+        bio: '',
+    });
 
     useEffect(() => {
-        const fetchUserData = async () => {
-            try {
-                const token = localStorage.getItem('access');
-                if (!token) {
-                    navigate('/login');
-                    return;
-                }
-
-                // Fetch user profile
-                const profileRes = await axios.get('http://127.0.0.1:8000/api/users/profile/', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setUser(profileRes.data);
-
-                // Fetch user orders
-                const ordersRes = await axios.get('http://127.0.0.1:8000/api/orders/my-orders/', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setOrders(ordersRes.data || []);
-            } catch (error) {
-                console.error(error);
-                if (error.response?.status === 401) {
-                    navigate('/login');
-                }
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchUserData();
-    }, [navigate]);
+    }, []);
+
+    const fetchUserData = async () => {
+        try {
+            const token = localStorage.getItem('access');
+            if (!token) {
+                navigate('/login');
+                return;
+            }
+
+            const profileRes = await axios.get('http://127.0.0.1:8000/api/users/profile/', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setUser(profileRes.data);
+
+            setEditForm({
+                username: profileRes.data.username || '',
+                email: profileRes.data.email || '',
+                phone: profileRes.data.phone || '',
+                address: profileRes.data.address || '',
+                city: profileRes.data.city || '',
+                state: profileRes.data.state || '',
+                pincode: profileRes.data.pincode || '',
+                bio: profileRes.data.bio || '',
+            });
+
+            const ordersRes = await axios.get('http://127.0.0.1:8000/api/orders/my-orders/', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setOrders(ordersRes.data || []);
+        } catch (error) {
+            console.error(error);
+            if (error.response?.status === 401) {
+                navigate('/login');
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleProfilePictureUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('profile_picture', file);
+
+        setUploading(true);
+        setErrorMessage('');
+
+        try {
+            const token = localStorage.getItem('access');
+            const response = await axios.put('http://127.0.0.1:8000/api/users/profile/', formData, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+
+            setUser((prev) => ({ ...prev, profile_picture: response.data.profile_picture }));
+            setSuccessMessage('Profile picture updated!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (error) {
+            console.error('Upload error:', error);
+            setErrorMessage('Failed to upload image');
+            setTimeout(() => setErrorMessage(''), 3000);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleSaveProfile = async () => {
+        setSaveLoading(true);
+        setErrorMessage('');
+
+        try {
+            const token = localStorage.getItem('access');
+            const response = await axios.put('http://127.0.0.1:8000/api/users/profile/', editForm, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            setUser((prev) => ({ ...prev, ...response.data }));
+            setIsEditing(false);
+            setSuccessMessage('Profile updated successfully!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (error) {
+            console.error('Save error:', error);
+            setErrorMessage('Failed to save profile');
+            setTimeout(() => setErrorMessage(''), 3000);
+        } finally {
+            setSaveLoading(false);
+        }
+    };
 
     const handleLogout = () => {
         localStorage.removeItem('access');
@@ -70,18 +155,27 @@ function Profile() {
         return name ? name.charAt(0).toUpperCase() : 'U';
     };
 
+    const getProfileImageUrl = () => {
+        if (user?.profile_picture) {
+            if (user.profile_picture.startsWith('http')) {
+                return user.profile_picture;
+            }
+            return `http://127.0.0.1:8000${user.profile_picture}`;
+        }
+        return null;
+    };
+
     const getTotalSpent = () => {
         return orders.reduce((total, order) => total + (parseFloat(order.total_price) || 0), 0);
     };
 
     const getOrderStats = () => {
-        const stats = {
+        return {
             total: orders.length,
             delivered: orders.filter((o) => o.status === 'delivered').length,
             pending: orders.filter((o) => o.status === 'pending').length,
             cancelled: orders.filter((o) => o.status === 'cancelled').length,
         };
-        return stats;
     };
 
     if (loading) {
@@ -97,10 +191,29 @@ function Profile() {
 
     const orderStats = getOrderStats();
     const totalSpent = getTotalSpent();
+    const profileImage = getProfileImageUrl();
 
     return (
         <div className="min-h-screen bg-gray-50 pt-28 pb-16 px-4 md:px-8">
             <div className="max-w-7xl mx-auto">
+                {/* Success/Error Messages */}
+                {successMessage && (
+                    <div className="fixed top-24 right-4 z-50 animate-slide-down">
+                        <div className="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg">
+                            <CheckCircle size={16} />
+                            {successMessage}
+                        </div>
+                    </div>
+                )}
+                {errorMessage && (
+                    <div className="fixed top-24 right-4 z-50 animate-slide-down">
+                        <div className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg">
+                            <AlertCircle size={16} />
+                            {errorMessage}
+                        </div>
+                    </div>
+                )}
+
                 {/* Page Header */}
                 <div className="mb-8">
                     <h1 className="text-3xl md:text-4xl font-bold tracking-tighter text-black">My Account</h1>
@@ -111,16 +224,42 @@ function Profile() {
                     {/* Sidebar */}
                     <div className="lg:col-span-1">
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden sticky top-28">
-                            {/* Profile Summary */}
+                            {/* Profile Summary with Picture Upload */}
                             <div className="p-6 text-center border-b border-gray-100">
-                                <div className="relative inline-block">
-                                    <div className="w-24 h-24 mx-auto bg-black rounded-full flex items-center justify-center text-white text-3xl font-bold">
-                                        {getInitials(user?.username)}
-                                    </div>
-                                    <button className="absolute bottom-0 right-0 bg-white border border-gray-200 rounded-full p-1.5 shadow-sm hover:bg-gray-50 transition">
-                                        <Edit2 size={12} className="text-gray-600" />
+                                <div className="relative inline-block group">
+                                    {/* Profile Image or Initials */}
+                                    {profileImage ? (
+                                        <img
+                                            src={profileImage}
+                                            alt={user?.username}
+                                            className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
+                                        />
+                                    ) : (
+                                        <div className="w-24 h-24 mx-auto bg-black rounded-full flex items-center justify-center text-white text-3xl font-bold">
+                                            {getInitials(user?.username)}
+                                        </div>
+                                    )}
+
+                                    {/* Edit/Camera Button */}
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploading}
+                                        className="absolute bottom-0 right-0 bg-white border border-gray-200 rounded-full p-1.5 shadow-sm hover:bg-gray-50 transition disabled:opacity-50">
+                                        {uploading ? (
+                                            <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                                        ) : (
+                                            <Camera size={12} className="text-gray-600" />
+                                        )}
                                     </button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        onChange={handleProfilePictureUpload}
+                                        accept="image/*"
+                                        className="hidden"
+                                    />
                                 </div>
+
                                 <h2 className="text-xl font-bold text-black mt-4">{user?.username}</h2>
                                 <p className="text-sm text-gray-400">{user?.email}</p>
                                 <div className="mt-3 inline-flex items-center gap-1 px-3 py-1 bg-green-50 rounded-full">
@@ -135,7 +274,6 @@ function Profile() {
                                     { id: 'overview', label: 'Overview', icon: User },
                                     { id: 'orders', label: 'My Orders', icon: Package, badge: orders.length },
                                     { id: 'wishlist', label: 'Wishlist', icon: Heart },
-                                    { id: 'settings', label: 'Settings', icon: Settings },
                                 ].map((tab) => (
                                     <button
                                         key={tab.id}
@@ -149,11 +287,7 @@ function Profile() {
                                         </div>
                                         {tab.badge > 0 && (
                                             <span
-                                                className={`text-xs px-2 py-0.5 rounded-full ${
-                                                    activeTab === tab.id
-                                                        ? 'bg-white/20 text-white'
-                                                        : 'bg-gray-200 text-gray-600'
-                                                }`}>
+                                                className={`text-xs px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>
                                                 {tab.badge}
                                             </span>
                                         )}
@@ -201,7 +335,7 @@ function Profile() {
                                         },
                                         {
                                             label: 'Member Since',
-                                            value: '2024',
+                                            value: new Date(user?.date_joined).getFullYear() || '2024',
                                             icon: Calendar,
                                             color: 'bg-orange-50 text-orange-600',
                                         },
@@ -229,7 +363,6 @@ function Profile() {
                                             View All <ChevronRight size={14} />
                                         </button>
                                     </div>
-
                                     {orders.slice(0, 3).length === 0 ? (
                                         <div className="text-center py-8">
                                             <Package size={40} className="mx-auto text-gray-300 mb-3" />
@@ -255,13 +388,7 @@ function Profile() {
                                                             ₹{parseFloat(order.total_price).toLocaleString()}
                                                         </p>
                                                         <span
-                                                            className={`text-xs px-2 py-0.5 rounded-full ${
-                                                                order.status === 'delivered'
-                                                                    ? 'bg-green-100 text-green-700'
-                                                                    : order.status === 'pending'
-                                                                      ? 'bg-yellow-100 text-yellow-700'
-                                                                      : 'bg-gray-100 text-gray-700'
-                                                            }`}>
+                                                            className={`text-xs px-2 py-0.5 rounded-full ${order.status === 'delivered' ? 'bg-green-100 text-green-700' : order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}`}>
                                                             {order.status}
                                                         </span>
                                                     </div>
@@ -271,25 +398,135 @@ function Profile() {
                                     )}
                                 </div>
 
-                                {/* Account Info */}
+                                {/* Account Info - Editable */}
                                 <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                                    <h3 className="text-lg font-bold text-black mb-4">Account Information</h3>
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                                            <User size={18} className="text-gray-400" />
-                                            <div>
-                                                <p className="text-xs text-gray-400">Username</p>
-                                                <p className="text-sm font-medium text-black">{user?.username}</p>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-bold text-black">Account Information</h3>
+                                        {!isEditing ? (
+                                            <button
+                                                onClick={() => setIsEditing(true)}
+                                                className="flex items-center gap-1 text-sm text-gray-400 hover:text-black transition">
+                                                <Edit2 size={14} /> Edit Profile
+                                            </button>
+                                        ) : (
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => setIsEditing(false)}
+                                                    className="text-sm text-gray-400 hover:text-black transition">
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={handleSaveProfile}
+                                                    disabled={saveLoading}
+                                                    className="flex items-center gap-1 text-sm bg-black text-white px-3 py-1 rounded-lg hover:bg-gray-800 transition">
+                                                    {saveLoading ? (
+                                                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                                                    ) : (
+                                                        <Save size={12} />
+                                                    )}
+                                                    Save
+                                                </button>
                                             </div>
-                                        </div>
-                                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                                            <Mail size={18} className="text-gray-400" />
-                                            <div>
-                                                <p className="text-xs text-gray-400">Email Address</p>
-                                                <p className="text-sm font-medium text-black">{user?.email}</p>
-                                            </div>
-                                        </div>
+                                        )}
                                     </div>
+
+                                    {!isEditing ? (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                                <User size={18} className="text-gray-400" />
+                                                <div>
+                                                    <p className="text-xs text-gray-400">Username</p>
+                                                    <p className="text-sm font-medium text-black">{user?.username}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                                <Mail size={18} className="text-gray-400" />
+                                                <div>
+                                                    <p className="text-xs text-gray-400">Email Address</p>
+                                                    <p className="text-sm font-medium text-black">{user?.email}</p>
+                                                </div>
+                                            </div>
+                                            {user?.phone && (
+                                                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                                    <Phone size={18} className="text-gray-400" />
+                                                    <div>
+                                                        <p className="text-xs text-gray-400">Phone</p>
+                                                        <p className="text-sm font-medium text-black">{user?.phone}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {user?.address && (
+                                                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                                                    <MapPin size={18} className="text-gray-400" />
+                                                    <div>
+                                                        <p className="text-xs text-gray-400">Address</p>
+                                                        <p className="text-sm font-medium text-black">{user?.address}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <input
+                                                type="text"
+                                                value={editForm.username}
+                                                onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                                                placeholder="Username"
+                                                className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="email"
+                                                value={editForm.email}
+                                                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                                placeholder="Email"
+                                                className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="tel"
+                                                value={editForm.phone}
+                                                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                                placeholder="Phone Number"
+                                                className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <textarea
+                                                value={editForm.address}
+                                                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                                                placeholder="Address"
+                                                rows="2"
+                                                className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black resize-none"
+                                            />
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <input
+                                                    type="text"
+                                                    value={editForm.city}
+                                                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                                                    placeholder="City"
+                                                    className="p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={editForm.state}
+                                                    onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                                                    placeholder="State"
+                                                    className="p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+                                                />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={editForm.pincode}
+                                                onChange={(e) => setEditForm({ ...editForm, pincode: e.target.value })}
+                                                placeholder="Pincode"
+                                                className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <textarea
+                                                value={editForm.bio}
+                                                onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                                                placeholder="Bio"
+                                                rows="2"
+                                                className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-black resize-none"
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
