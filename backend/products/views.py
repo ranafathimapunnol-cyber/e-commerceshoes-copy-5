@@ -1,12 +1,20 @@
-from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 
-from .models import Product, Category, SubCategory
+from .models import (
+    Product,
+    Category,
+    SubCategory,
+    Wishlist
+)
+
 from .serializers import (
     ProductSerializer,
     CategorySerializer,
-    SubCategorySerializer
+    SubCategorySerializer,
+    WishlistSerializer
 )
 
 
@@ -89,3 +97,50 @@ def getProduct(request, pk):
             {"error": "Product not found"},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+# GET WISHLIST
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getWishlist(request):
+
+    wishlist = Wishlist.objects.filter(user=request.user)
+
+    serializer = WishlistSerializer(wishlist, many=True)
+
+    return Response(serializer.data)
+
+
+# ADD TO WISHLIST
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def addWishlist(request):
+
+    product_id = request.data.get('product')
+
+    product = Product.objects.get(id=product_id)
+
+    item, created = Wishlist.objects.get_or_create(
+        user=request.user,
+        product=product
+    )
+
+    return Response({
+        'message': 'Added to wishlist'
+    })
+
+
+# REMOVE WISHLIST
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def removeWishlist(request, pk):
+
+    item = Wishlist.objects.get(id=pk)
+
+    item.delete()
+
+    return Response({
+        'message': 'Removed'
+    })
