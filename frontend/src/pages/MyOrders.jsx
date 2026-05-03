@@ -14,7 +14,6 @@ import {
     Package,
     MapPin,
     CreditCard,
-    IndianRupee,
 } from 'lucide-react';
 
 function MyOrders() {
@@ -39,6 +38,7 @@ function MyOrders() {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
+            console.log('Orders fetched:', response.data);
             setOrders(response.data || []);
         } catch (error) {
             console.error('Error fetching orders:', error);
@@ -64,6 +64,18 @@ function MyOrders() {
     const getProgressWidth = (status) => {
         const steps = { pending: 25, confirmed: 50, shipped: 75, delivered: 100, cancelled: 0 };
         return steps[status] || 0;
+    };
+
+    // Helper function to get item price
+    const getItemPrice = (item) => {
+        // Try different possible price fields
+        return item.price || item.product?.price || item.item_price || 0;
+    };
+
+    // Helper function to get item total
+    const getItemTotal = (item) => {
+        const price = getItemPrice(item);
+        return price * item.quantity;
     };
 
     if (loading) {
@@ -148,7 +160,7 @@ function MyOrders() {
                                     </div>
 
                                     {/* Progress Bar */}
-                                    {order.status !== 'cancelled' && (
+                                    {order.status !== 'cancelled' && order.status !== 'delivered' && (
                                         <div className="px-5 pt-4">
                                             <div className="flex justify-between mb-2">
                                                 <span className="text-xs text-gray-400">Pending</span>
@@ -168,30 +180,39 @@ function MyOrders() {
                                     {/* Order Items Preview */}
                                     <div className="p-5">
                                         <div className="space-y-3">
-                                            {order.items.slice(0, 2).map((item) => (
-                                                <div key={item.id} className="flex items-center gap-4">
-                                                    <img
-                                                        src={
-                                                            item.product?.image
-                                                                ? `http://127.0.0.1:8000${item.product.image}`
-                                                                : '/api/placeholder/60/60'
-                                                        }
-                                                        alt={item.product?.name}
-                                                        className="w-14 h-14 rounded-lg object-cover bg-gray-100"
-                                                    />
-                                                    <div className="flex-1">
-                                                        <h4 className="font-medium text-gray-800">{item.product?.name}</h4>
-                                                        <p className="text-sm text-gray-400">Qty: {item.quantity}</p>
+                                            {order.items &&
+                                                order.items.slice(0, 2).map((item) => (
+                                                    <div key={item.id} className="flex items-center gap-4">
+                                                        <img
+                                                            src={
+                                                                item.product?.image
+                                                                    ? `http://127.0.0.1:8000${item.product.image}`
+                                                                    : '/api/placeholder/60/60'
+                                                            }
+                                                            alt={item.product?.name || 'Product'}
+                                                            className="w-14 h-14 rounded-lg object-cover bg-gray-100"
+                                                        />
+                                                        <div className="flex-1">
+                                                            <h4 className="font-medium text-gray-800">
+                                                                {item.product?.name || 'Product'}
+                                                            </h4>
+                                                            <p className="text-sm text-gray-400">Qty: {item.quantity}</p>
+                                                            <p className="text-xs text-gray-400">
+                                                                ₹{getItemPrice(item)} each
+                                                            </p>
+                                                        </div>
+                                                        <p className="font-semibold">
+                                                            ₹{getItemTotal(item).toLocaleString()}
+                                                        </p>
                                                     </div>
-                                                    <p className="font-semibold">
-                                                        ₹{(item.price * item.quantity).toLocaleString()}
-                                                    </p>
-                                                </div>
-                                            ))}
-                                            {order.items.length > 2 && (
+                                                ))}
+                                            {order.items && order.items.length > 2 && (
                                                 <p className="text-xs text-gray-400 text-center pt-2">
                                                     +{order.items.length - 2} more items
                                                 </p>
+                                            )}
+                                            {(!order.items || order.items.length === 0) && (
+                                                <p className="text-sm text-gray-400 text-center">No items found</p>
                                             )}
                                         </div>
 
@@ -211,13 +232,20 @@ function MyOrders() {
             </div>
 
             {/* Order Details Modal */}
-            {selectedOrder && <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
+            {selectedOrder && (
+                <OrderDetailsModal
+                    order={selectedOrder}
+                    onClose={() => setSelectedOrder(null)}
+                    getItemPrice={getItemPrice}
+                    getItemTotal={getItemTotal}
+                />
+            )}
         </div>
     );
 }
 
 // Order Details Modal Component
-const OrderDetailsModal = ({ order, onClose }) => {
+const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
     const statusConfig = {
         pending: { icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200' },
         confirmed: { icon: CheckCircle, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
@@ -227,6 +255,18 @@ const OrderDetailsModal = ({ order, onClose }) => {
     };
     const config = statusConfig[order.status] || statusConfig['pending'];
     const StatusIcon = config.icon;
+
+    // Status display name
+    const getStatusDisplay = (status) => {
+        const names = {
+            pending: 'Pending',
+            confirmed: 'Confirmed',
+            shipped: 'Shipped',
+            delivered: 'Delivered',
+            cancelled: 'Cancelled',
+        };
+        return names[status] || status;
+    };
 
     return (
         <div
@@ -247,7 +287,7 @@ const OrderDetailsModal = ({ order, onClose }) => {
                     <div className={`${config.bg} border ${config.border} rounded-xl p-4 flex items-center gap-3`}>
                         <StatusIcon size={24} className={config.color} />
                         <div>
-                            <p className="font-semibold">Order Status: {order.status_display}</p>
+                            <p className="font-semibold">Order Status: {getStatusDisplay(order.status)}</p>
                             {order.tracking_number && (
                                 <p className="text-sm text-gray-500">Tracking: {order.tracking_number}</p>
                             )}
@@ -259,8 +299,8 @@ const OrderDetailsModal = ({ order, onClose }) => {
                         <h3 className="font-semibold mb-3">Order Timeline</h3>
                         <div className="space-y-3">
                             {['pending', 'confirmed', 'shipped', 'delivered'].map((status, index) => {
-                                const isCompleted =
-                                    ['pending', 'confirmed', 'shipped', 'delivered'].indexOf(order.status) >= index;
+                                const statusOrder = ['pending', 'confirmed', 'shipped', 'delivered'];
+                                const isCompleted = statusOrder.indexOf(order.status) >= index;
                                 const statusNames = {
                                     pending: 'Order Placed',
                                     confirmed: 'Order Confirmed',
@@ -277,11 +317,6 @@ const OrderDetailsModal = ({ order, onClose }) => {
                                             <p className={`font-medium ${isCompleted ? 'text-gray-800' : 'text-gray-400'}`}>
                                                 {statusNames[status]}
                                             </p>
-                                            {isCompleted && status === order.status && (
-                                                <p className="text-xs text-gray-400">
-                                                    {new Date(order.updated_at || order.created_at).toLocaleString()}
-                                                </p>
-                                            )}
                                         </div>
                                     </div>
                                 );
@@ -312,24 +347,29 @@ const OrderDetailsModal = ({ order, onClose }) => {
                     <div className="border-t pt-4">
                         <h3 className="font-semibold mb-3">Order Items</h3>
                         <div className="space-y-3">
-                            {order.items.map((item) => (
-                                <div key={item.id} className="flex gap-4 py-3 border-b last:border-0">
-                                    <img
-                                        src={
-                                            item.product?.image
-                                                ? `http://127.0.0.1:8000${item.product.image}`
-                                                : '/api/placeholder/60/60'
-                                        }
-                                        className="w-16 h-16 rounded-lg object-cover"
-                                    />
-                                    <div className="flex-1">
-                                        <h4 className="font-medium">{item.product?.name}</h4>
-                                        <p className="text-sm text-gray-400">Quantity: {item.quantity}</p>
-                                        <p className="text-sm text-gray-400">Price: ₹{item.price} each</p>
+                            {order.items &&
+                                order.items.map((item) => (
+                                    <div key={item.id} className="flex gap-4 py-3 border-b last:border-0">
+                                        <img
+                                            src={
+                                                item.product?.image
+                                                    ? `http://127.0.0.1:8000${item.product.image}`
+                                                    : '/api/placeholder/60/60'
+                                            }
+                                            className="w-16 h-16 rounded-lg object-cover"
+                                            alt={item.product?.name}
+                                        />
+                                        <div className="flex-1">
+                                            <h4 className="font-medium">{item.product?.name || 'Product'}</h4>
+                                            <p className="text-sm text-gray-400">Quantity: {item.quantity}</p>
+                                            <p className="text-sm text-gray-400">Price: ₹{getItemPrice(item)} each</p>
+                                        </div>
+                                        <p className="font-semibold">₹{getItemTotal(item).toLocaleString()}</p>
                                     </div>
-                                    <p className="font-semibold">₹{(item.price * item.quantity).toLocaleString()}</p>
-                                </div>
-                            ))}
+                                ))}
+                            {(!order.items || order.items.length === 0) && (
+                                <p className="text-sm text-gray-400 text-center">No items found</p>
+                            )}
                         </div>
                     </div>
 

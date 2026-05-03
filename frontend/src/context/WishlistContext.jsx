@@ -2,9 +2,6 @@ import { createContext, useState, useEffect } from 'react';
 
 export const WishlistContext = createContext();
 
-// ✅ ALWAYS USE ONLY id (your backend uses id)
-const getId = (item) => item?.id;
-
 export function WishlistProvider({ children }) {
     const [wishlist, setWishlist] = useState([]);
 
@@ -12,21 +9,13 @@ export function WishlistProvider({ children }) {
     useEffect(() => {
         try {
             const saved = localStorage.getItem('wishlist');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-
-                // ✅ ensure only valid objects
-                const clean = Array.isArray(parsed) ? parsed.filter((p) => p && p.id) : [];
-
-                setWishlist(clean);
-            }
-        } catch (err) {
-            console.log('Wishlist load error:', err);
+            setWishlist(saved ? JSON.parse(saved) : []);
+        } catch {
             setWishlist([]);
         }
     }, []);
 
-    // ================= SAVE =================
+    // ================= SYNC =================
     useEffect(() => {
         localStorage.setItem('wishlist', JSON.stringify(wishlist));
     }, [wishlist]);
@@ -35,23 +24,17 @@ export function WishlistProvider({ children }) {
     const toggleWishlist = (product) => {
         if (!product?.id) return;
 
-        const id = product.id;
-
         setWishlist((prev) => {
-            const exists = prev.some((item) => item.id === id);
+            const exists = prev.some((item) => item.id === product.id);
 
-            if (exists) {
-                return prev.filter((item) => item.id !== id);
-            }
+            const updated = exists ? prev.filter((item) => item.id !== product.id) : [...prev, product];
 
-            return [...prev, product]; // store FULL product
+            return updated;
         });
     };
 
-    // ================= REMOVE =================
+    // ================= REMOVE (IMPORTANT) =================
     const removeFromWishlist = (id) => {
-        if (!id) return;
-
         setWishlist((prev) => prev.filter((item) => item.id !== id));
     };
 

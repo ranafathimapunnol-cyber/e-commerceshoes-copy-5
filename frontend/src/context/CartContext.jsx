@@ -8,14 +8,9 @@ export const CartProvider = ({ children }) => {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    // =========================
-    // FETCH CART
-    // =========================
     const fetchCart = async () => {
-        // CHECK LOGIN FIRST
         const token = localStorage.getItem('access');
 
-        // IF NO LOGIN -> STOP
         if (!token) {
             setCart([]);
             return;
@@ -23,18 +18,14 @@ export const CartProvider = ({ children }) => {
 
         try {
             setLoading(true);
-
             const res = await api.get('/cart/');
-
             setCart(res.data || []);
         } catch (err) {
-            console.error('Cart fetch error:', err.response?.data || err.message);
+            console.error(err);
 
-            // TOKEN EXPIRED
             if (err.response?.data?.code === 'token_not_valid') {
                 localStorage.removeItem('access');
                 localStorage.removeItem('refresh');
-
                 setCart([]);
             }
         } finally {
@@ -42,29 +33,19 @@ export const CartProvider = ({ children }) => {
         }
     };
 
-    // =========================
-    // LOAD CART ONLY IF LOGGED IN
-    // =========================
     useEffect(() => {
-        const token = localStorage.getItem('access');
-
-        if (token) {
+        if (localStorage.getItem('access')) {
             fetchCart();
         }
     }, []);
 
-    // =========================
-    // ADD TO CART
-    // =========================
+    // ================= FIXED =================
     const addToCart = async (product_id, quantity = 1) => {
         const token = localStorage.getItem('access');
 
-        // LOGIN REQUIRED
         if (!token) {
             alert('Please login first');
-
             window.location.href = '/login';
-
             return false;
         }
 
@@ -78,17 +59,13 @@ export const CartProvider = ({ children }) => {
 
             setOpen(true);
 
-            return true;
+            return true; // 🔥 IMPORTANT FOR WISHLIST SYNC
         } catch (err) {
-            console.error('Add to cart error:', err.response?.data || err.message);
-
+            console.error(err);
             return false;
         }
     };
 
-    // =========================
-    // UPDATE CART
-    // =========================
     const updateCart = async (item_id, quantity) => {
         try {
             await api.put('/cart/update/', {
@@ -98,20 +75,16 @@ export const CartProvider = ({ children }) => {
 
             await fetchCart();
         } catch (err) {
-            console.error(err.response?.data || err.message);
+            console.error(err);
         }
     };
 
-    // =========================
-    // REMOVE ITEM
-    // =========================
     const removeItem = async (item_id) => {
         try {
             await api.delete(`/cart/remove/${item_id}/`);
-
             await fetchCart();
         } catch (err) {
-            console.error(err.response?.data || err.message);
+            console.error(err);
         }
     };
 
