@@ -1,16 +1,34 @@
+from rest_framework.decorators import api_view, permission_classes
+from .models import User
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+User = get_user_model()
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_profile(request):
+
+    user = request.user
+
+    return Response({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+    })
 # =========================
 # JWT LOGIN
 # =========================
+
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
@@ -56,3 +74,21 @@ def register_user(request):
     return Response({
         'message': 'User created successfully'
     })
+
+
+# =========================
+# USER PROFILE
+# =========================
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getUserProfile(request):
+
+    user = request.user
+
+    data = {
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+    }
+
+    return Response(data)

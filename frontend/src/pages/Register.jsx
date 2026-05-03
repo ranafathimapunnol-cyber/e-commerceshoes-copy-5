@@ -24,7 +24,7 @@ function Register() {
     const handleRegister = async (e) => {
         e.preventDefault();
 
-        if (!formData.username || !formData.email || !formData.password) {
+        if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
             alert('Please fill all fields');
             return;
         }
@@ -37,19 +37,28 @@ function Register() {
         try {
             setLoading(true);
 
-            await axios.post('http://127.0.0.1:8000/api/users/register/', {
+            const response = await axios.post('http://127.0.0.1:8000/api/users/register/', {
                 username: formData.username,
                 email: formData.email,
                 password: formData.password,
+                password2: formData.confirmPassword,
             });
+
+            console.log(response.data);
 
             alert('Registration successful ✅');
 
             navigate('/login');
         } catch (error) {
-            console.log(error);
+            console.log('REGISTER ERROR:', error);
 
-            alert('Registration failed ❌');
+            if (error.response) {
+                console.log(error.response.data);
+
+                alert(JSON.stringify(error.response.data));
+            } else {
+                alert('Server not responding');
+            }
         } finally {
             setLoading(false);
         }
@@ -67,35 +76,42 @@ function Register() {
                         type="text"
                         name="username"
                         placeholder="Username"
+                        value={formData.username}
                         onChange={handleChange}
-                        className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3"
+                        className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 outline-none"
                     />
 
                     <input
                         type="email"
                         name="email"
                         placeholder="Email"
+                        value={formData.email}
                         onChange={handleChange}
-                        className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3"
+                        className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 outline-none"
                     />
 
                     <input
                         type="password"
                         name="password"
                         placeholder="Password"
+                        value={formData.password}
                         onChange={handleChange}
-                        className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3"
+                        className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 outline-none"
                     />
 
                     <input
                         type="password"
                         name="confirmPassword"
                         placeholder="Confirm Password"
+                        value={formData.confirmPassword}
                         onChange={handleChange}
-                        className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3"
+                        className="w-full bg-black/50 border border-white/10 rounded-lg px-4 py-3 outline-none"
                     />
 
-                    <button type="submit" className="w-full bg-white text-black py-3 rounded-lg font-bold">
+                    <button
+                        type="submit"
+                        disabled={loading}
+                        className="w-full bg-white text-black py-3 rounded-lg font-bold hover:bg-gray-200 transition disabled:opacity-50">
                         {loading ? 'Creating Account...' : 'REGISTER'}
                     </button>
                 </form>

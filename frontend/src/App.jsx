@@ -16,6 +16,7 @@ import Checkout from './pages/Checkout';
 import NewArrivals from './pages/NewArrivals';
 import MyOrders from './pages/MyOrders';
 import Register from './pages/Register';
+import Profile from './pages/Profile';
 function App() {
     return (
         <CartProvider>
@@ -34,7 +35,7 @@ function App() {
                         <Route path="/product/:id" element={<ProductPage />} />
 
                         <Route path="/shop/:category" element={<ShopByCategory />} />
-
+                        <Route path="/profile" element={<Profile />} />
                         <Route path="/cart" element={<Cart />} />
                         <Route path="/register" element={<Register />} />
                         <Route path="/wishlist" element={<Wishlist />} />

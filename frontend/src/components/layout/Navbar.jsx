@@ -28,19 +28,19 @@ function PremiumBlackWhiteNavbar() {
         setIsLoggedIn(!!token);
     }, [location.pathname]);
 
-    // ❌ FIXED: DO NOT HIDE NAVBAR ANYWHERE
-    // (removed buggy return null condition)
-
     // ================= CART COUNT =================
     useEffect(() => {
         const token = localStorage.getItem('access');
+
         if (!token) {
             setItemCount(0);
             return;
         }
 
         const items = Array.isArray(cart) ? cart : cart?.items || [];
+
         const totalItems = items.reduce((acc, item) => acc + (item.quantity || 1), 0);
+
         setItemCount(totalItems);
     }, [cart]);
 
@@ -63,6 +63,7 @@ function PremiumBlackWhiteNavbar() {
         };
 
         window.addEventListener('scroll', updateColor);
+
         updateColor();
 
         return () => window.removeEventListener('scroll', updateColor);
@@ -72,7 +73,9 @@ function PremiumBlackWhiteNavbar() {
     const handleLogout = () => {
         localStorage.removeItem('access');
         localStorage.removeItem('refresh');
+
         setIsLoggedIn(false);
+
         navigate('/login');
     };
 
@@ -97,6 +100,7 @@ function PremiumBlackWhiteNavbar() {
     };
 
     const textColorClass = navTextColor === 'white' ? 'text-white' : 'text-black';
+
     const hoverColorClass = navTextColor === 'white' ? 'hover:text-gray-300' : 'hover:text-gray-700';
 
     return (
@@ -118,6 +122,7 @@ function PremiumBlackWhiteNavbar() {
                             onClick={() => handleNavClick(item)}
                             className={`flex items-center gap-1 ${hoverColorClass}`}>
                             {item.name}
+
                             {megaMenuData[item.name] && <ChevronDown size={14} />}
                         </button>
                     ))}
@@ -125,13 +130,16 @@ function PremiumBlackWhiteNavbar() {
 
                 {/* RIGHT ICONS */}
                 <div className={`flex items-center gap-4 ${textColorClass}`}>
+                    {/* SEARCH */}
                     <button>
                         <Search size={18} />
                     </button>
 
+                    {/* WISHLIST */}
                     {isLoggedIn && (
                         <Link to="/wishlist" className="relative">
                             <Heart size={18} />
+
                             {wishlist.length > 0 && (
                                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
                                     {wishlist.length}
@@ -140,9 +148,11 @@ function PremiumBlackWhiteNavbar() {
                         </Link>
                     )}
 
+                    {/* CART */}
                     {isLoggedIn && (
                         <button onClick={openCartPage} className="relative">
                             <ShoppingBag size={18} />
+
                             {itemCount > 0 && (
                                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
                                     {itemCount}
@@ -151,14 +161,23 @@ function PremiumBlackWhiteNavbar() {
                         </button>
                     )}
 
+                    {/* LOGIN / PROFILE */}
                     {!isLoggedIn ? (
                         <Link to="/login">
                             <User size={18} />
                         </Link>
                     ) : (
-                        <button onClick={handleLogout} className="text-xs font-bold hover:text-red-500">
-                            Logout
-                        </button>
+                        <>
+                            {/* PROFILE */}
+                            <Link to="/profile">
+                                <User size={18} />
+                            </Link>
+
+                            {/* LOGOUT */}
+                            <button onClick={handleLogout} className="text-xs font-bold hover:text-red-500">
+                                Logout
+                            </button>
+                        </>
                     )}
                 </div>
             </div>
