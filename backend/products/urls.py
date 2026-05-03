@@ -7,6 +7,7 @@ from .views import (
     getProduct,
     getCategories,
     getSubCategories,
+    get_new_arrivals
 )
 
 urlpatterns = [
@@ -26,5 +27,9 @@ urlpatterns = [
     path('categories/', getCategories),
 
     path('categories/<int:category_id>/sub/', getSubCategories),
+
+
+
+    path('new-arrivals/', get_new_arrivals)
 
 ]

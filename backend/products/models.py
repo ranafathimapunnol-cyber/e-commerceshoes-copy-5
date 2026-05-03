@@ -6,7 +6,6 @@ from users.models import User
 # CATEGORY
 # =========================
 class Category(models.Model):
-
     name = models.CharField(max_length=100)
 
     def __str__(self):
@@ -17,7 +16,6 @@ class Category(models.Model):
 # SUB CATEGORY
 # =========================
 class SubCategory(models.Model):
-
     name = models.CharField(max_length=100)
 
     category = models.ForeignKey(
@@ -31,12 +29,10 @@ class SubCategory(models.Model):
 
 
 # =========================
-# PRODUCT
+# PRODUCT (ONLY ONE MODEL 🔥)
 # =========================
 class Product(models.Model):
-
     name = models.CharField(max_length=255)
-
     brand = models.CharField(max_length=255)
 
     category = models.ForeignKey(
@@ -55,15 +51,10 @@ class Product(models.Model):
 
     description = models.TextField()
 
-    price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2
-    )
-
+    price = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.PositiveIntegerField()
 
     size = models.CharField(max_length=50)
-
     color = models.CharField(max_length=100)
 
     image = models.ImageField(
@@ -73,6 +64,9 @@ class Product(models.Model):
     )
 
     is_featured = models.BooleanField(default=False)
+
+    # 🔥 UNISEX FEATURE ADDED PROPERLY
+    gender = models.CharField(max_length=20, default="UNISEX")
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -84,11 +78,7 @@ class Product(models.Model):
 # WISHLIST
 # =========================
 class Wishlist(models.Model):
-
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     product = models.ForeignKey(
         Product,
