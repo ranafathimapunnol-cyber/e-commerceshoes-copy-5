@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
@@ -17,6 +18,7 @@ import Checkout from './pages/Checkout';
 import NewArrivals from './pages/NewArrivals';
 import MyOrders from './pages/MyOrders';
 import Profile from './pages/Profile';
+
 function AppLayout() {
     const location = useLocation();
 
@@ -55,6 +57,21 @@ function App() {
         <CartProvider>
             <WishlistProvider>
                 <BrowserRouter>
+                    {/* ✅ GLOBAL TOAST */}
+                    <Toaster
+                        position="top-right"
+                        toastOptions={{
+                            duration: 3000,
+                            style: {
+                                background: '#111',
+                                color: '#fff',
+                                borderRadius: '12px',
+                                padding: '12px 16px',
+                                fontSize: '14px',
+                            },
+                        }}
+                    />
+
                     <AppLayout />
                 </BrowserRouter>
             </WishlistProvider>

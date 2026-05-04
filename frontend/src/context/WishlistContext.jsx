@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect } from 'react';
+import { showSuccess, showInfo } from '../utils/toast';
 
 export const WishlistContext = createContext();
 
@@ -46,13 +47,21 @@ export function WishlistProvider({ children }) {
         setWishlist((prev) => {
             const exists = prev.some((item) => item.id === product.id);
 
-            return exists ? prev.filter((item) => item.id !== product.id) : [...prev, product];
+            if (exists) {
+                showInfo('Removed from wishlist');
+                return prev.filter((item) => item.id !== product.id);
+            } else {
+                showSuccess('Added to wishlist ❤️');
+                return [...prev, product];
+            }
         });
     };
 
     // ================= REMOVE =================
     const removeFromWishlist = (id) => {
         setWishlist((prev) => prev.filter((item) => item.id !== id));
+
+        showInfo('Removed from wishlist');
     };
 
     // ================= CHECK =================

@@ -1,19 +1,9 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Truck, Package, CreditCard, MapPin } from 'lucide-react';
+import { ShieldCheck, Truck, Package } from 'lucide-react';
 
 function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
     const navigate = useNavigate();
-
-    const closeAndContinue = () => {
-        if (onClose) onClose();
-        else navigate('/products');
-    };
-
-    const closeAndGoOrders = () => {
-        if (onGoToOrders) onGoToOrders();
-        else navigate('/my-orders');
-    };
 
     useEffect(() => {
         // Confetti
@@ -92,13 +82,21 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
             return el;
         });
 
+        // Auto-redirect to orders page after 7 seconds
+        const redirectTimeout = setTimeout(() => {
+            if (onGoToOrders) {
+                onGoToOrders();
+            } else {
+                navigate('/my-orders');
+            }
+        }, 7000);
+
         return () => {
             burstEls.forEach((el) => el.remove());
             tagEls.forEach((el) => el.remove());
+            clearTimeout(redirectTimeout);
         };
-    }, []);
-
-    if (!orderDetails) return null;
+    }, [navigate, onGoToOrders]);
 
     return (
         <>
@@ -112,8 +110,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                     60% { transform:scale(1.08) translateY(-4px); }
                     100%{ opacity:1; transform:scale(1) translateY(0); }
                 }
-                @keyframes oc-slideLeft  { 0%{opacity:0;transform:translateX(-80px)} 100%{opacity:1;transform:translateX(0)} }
-                @keyframes oc-slideRight { 0%{opacity:0;transform:translateX(80px)}  100%{opacity:1;transform:translateX(0)} }
                 @keyframes oc-slideDown  { 0%{opacity:0;transform:translateY(-60px)} 100%{opacity:1;transform:translateY(0)} }
                 @keyframes oc-slideUp    { 0%{opacity:0;transform:translateY(60px)}  100%{opacity:1;transform:translateY(0)} }
                 @keyframes oc-pulseRing  { 0%,100%{transform:scale(1);opacity:0.6} 50%{transform:scale(1.18);opacity:0.15} }
@@ -122,12 +118,15 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                 @keyframes oc-burst      { 0%{opacity:0.7;transform:scale(0)} 80%{opacity:0.12} 100%{opacity:0;transform:scale(1)} }
                 @keyframes oc-tagLeft    { 0%{opacity:0;transform:translateX(-120%)} 15%{opacity:1} 85%{opacity:1} 100%{opacity:0;transform:translateX(-120%)} }
                 @keyframes oc-tagRight   { 0%{opacity:0;transform:translateX(120%)}  15%{opacity:1} 85%{opacity:1} 100%{opacity:0;transform:translateX(120%)} }
+                @keyframes oc-countdown {
+                    0% { width: 100%; }
+                    100% { width: 0%; }
+                }
 
                 .oc-overlay {
                     position:fixed; inset:0; z-index:9999;
                     background:#fff;
-                    display:flex; align-items:flex-start; justify-content:center;
-                    overflow-y:auto; padding:0 12px 80px;
+                    display:flex; align-items:center; justify-content:center;
                     font-family:system-ui, -apple-system, sans-serif;
                 }
                 .oc-confetti-layer {
@@ -154,14 +153,11 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
 
                 .oc-card {
                     position:relative; z-index:10000;
-                    width:100%; max-width:520px;
-                    margin-top:40px;
+                    text-align:center;
+                    max-width:400px;
+                    padding:20px;
                 }
 
-                .oc-hero {
-                    text-align:center; margin-bottom:28px;
-                    animation:oc-slideDown 0.6s ease-out 0.1s both;
-                }
                 .oc-ring-wrap {
                     position:relative; display:inline-flex;
                     align-items:center; justify-content:center;
@@ -190,18 +186,12 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                 .oc-title {
                     font-size:clamp(28px,7vw,48px); font-weight:500;
                     letter-spacing:-1.5px; color:#000; line-height:1.1;
+                    margin-bottom:8px;
                     animation:oc-popIn 0.5s ease-out 0.5s both;
                 }
                 .oc-sub {
                     font-size:14px; color:#666; margin-top:6px;
                     animation:oc-popIn 0.5s ease-out 0.7s both;
-                }
-                .oc-badge {
-                    display:inline-block; margin-top:12px;
-                    padding:6px 18px; border:1.5px solid #000;
-                    border-radius:100px; font-size:13px; font-weight:500;
-                    letter-spacing:1px; background:#000; color:#fff;
-                    animation:oc-popIn 0.5s ease-out 0.85s both;
                 }
 
                 .oc-shimmer {
@@ -209,89 +199,38 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                     background:linear-gradient(90deg,#000 0%,#fff 50%,#000 100%);
                     background-size:200% 100%;
                     animation:oc-shimmer 2.5s linear infinite;
-                    margin:4px 0 14px;
+                    margin:24px 0 20px;
                 }
 
-                .oc-pop-row {
-                    display:grid; grid-template-columns:1fr 1fr 1fr;
-                    gap:10px; margin-bottom:16px;
+                .oc-countdown-container {
+                    margin-top: 40px;
+                    text-align: center;
+                    animation:oc-slideUp 0.5s ease-out 1.2s both;
                 }
-                .oc-pop {
-                    background:#fff; border:1px solid #e5e5e5;
-                    border-radius:14px; padding:14px 10px; text-align:center;
+                .oc-countdown-text {
+                    font-size: 12px;
+                    color: #888;
+                    margin-bottom: 8px;
                 }
-                .oc-pop.l { animation:oc-slideLeft  0.5s ease-out 0.5s  both; }
-                .oc-pop.c { animation:oc-slideDown  0.5s ease-out 0.65s both; }
-                .oc-pop.r { animation:oc-slideRight 0.5s ease-out 0.8s  both; }
-                .oc-pop-icon {
-                    width:32px; height:32px; border-radius:50%;
-                    background:#f5f5f5; display:flex;
-                    align-items:center; justify-content:center;
-                    margin:0 auto 8px;
+                .oc-countdown-bar {
+                    width: 200px;
+                    height: 2px;
+                    background: #e5e5e5;
+                    border-radius: 2px;
+                    overflow: hidden;
+                    margin: 0 auto;
                 }
-                .oc-pop-label {
-                    font-size:10px; color:#888;
-                    text-transform:uppercase; letter-spacing:0.8px; margin-bottom:3px;
+                .oc-countdown-progress {
+                    height: 100%;
+                    background: #000;
+                    border-radius: 2px;
+                    animation: oc-countdown 7s linear forwards;
                 }
-                .oc-pop-val { font-size:13px; font-weight:500; color:#000; line-height:1.3; }
-
-                .oc-detail {
-                    background:#fff; border:1px solid #e5e5e5;
-                    border-radius:18px; overflow:hidden; margin-bottom:16px;
-                }
-                .oc-detail.dl { animation:oc-slideLeft  0.5s ease-out 0.7s  both; }
-                .oc-detail.dr { animation:oc-slideRight 0.5s ease-out 0.85s both; }
-                .oc-dh {
-                    display:flex; align-items:center; gap:10px;
-                    padding:14px 16px; border-bottom:1px solid #f0f0f0;
-                    background:#fafafa;
-                }
-                .oc-dh-icon {
-                    width:28px; height:28px; border-radius:50%; background:#000;
-                    display:flex; align-items:center; justify-content:center; flex-shrink:0;
-                }
-                .oc-dh-title { font-size:13px; font-weight:500; color:#000; letter-spacing:0.3px; }
-                .oc-db { padding:14px 16px; }
-                .oc-row {
-                    display:flex; justify-content:space-between; align-items:center;
-                    padding:5px 0; font-size:13px;
-                }
-                .oc-rl { color:#888; }
-                .oc-rv { color:#000; font-weight:500; text-align:right; max-width:60%; }
-                .oc-item-row {
-                    display:flex; justify-content:space-between;
-                    font-size:13px; padding:5px 0; color:#000;
-                }
-                .oc-item-name { color:#666; max-width:70%; }
-                .oc-divider { border-top:1px solid #f0f0f0; margin-top:8px; padding-top:10px; }
-                .oc-total-row {
-                    display:flex; justify-content:space-between; align-items:baseline;
-                    border-top:1px solid #f0f0f0; margin-top:6px; padding-top:10px;
-                }
-                .oc-total-label { font-size:15px; font-weight:500; color:#000; }
-                .oc-total-val   { font-size:22px; font-weight:500; color:#000; }
-
-                .oc-actions {
-                    display:grid; grid-template-columns:1fr 1fr;
-                    gap:10px; margin-bottom:16px;
-                    animation:oc-slideUp 0.5s ease-out 1.1s both;
-                }
-                .oc-btn-primary {
-                    padding:13px; border-radius:12px; background:#000; color:#fff;
-                    border:none; font-size:14px; font-weight:500; cursor:pointer;
-                    transition:transform 0.15s, background 0.15s;
-                }
-                .oc-btn-primary:hover { background:#222; transform:scale(0.98); }
-                .oc-btn-secondary {
-                    padding:13px; border-radius:12px; background:#fff; color:#000;
-                    border:1.5px solid #e0e0e0; font-size:14px; font-weight:500;
-                    cursor:pointer; transition:transform 0.15s, border-color 0.15s;
-                }
-                .oc-btn-secondary:hover { border-color:#000; transform:scale(0.98); }
 
                 .oc-trust {
                     display:flex; justify-content:center; gap:20px; padding:16px;
-                    animation:oc-slideUp 0.5s ease-out 1.2s both;
+                    margin-top: 40px;
+                    animation:oc-slideUp 0.5s ease-out 1.4s both;
                 }
                 .oc-trust-item {
                     display:flex; align-items:center; gap:6px;
@@ -304,159 +243,25 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                 <div className="oc-confetti-layer" id="oc-confetti" />
 
                 <div className="oc-card">
-                    <div className="oc-hero">
-                        <div className="oc-ring-wrap">
-                            <div className="oc-ring1" />
-                            <div className="oc-ring2" />
-                            <div className="oc-check-circle">
-                                <svg width="44" height="44" viewBox="0 0 44 44" style={{ overflow: 'visible' }}>
-                                    <path className="oc-tick" d="M10 22 L19 31 L34 14" />
-                                </svg>
-                            </div>
+                    <div className="oc-ring-wrap">
+                        <div className="oc-ring1" />
+                        <div className="oc-ring2" />
+                        <div className="oc-check-circle">
+                            <svg width="44" height="44" viewBox="0 0 44 44" style={{ overflow: 'visible' }}>
+                                <path className="oc-tick" d="M10 22 L19 31 L34 14" />
+                            </svg>
                         </div>
-                        <div className="oc-title">Order Confirmed</div>
-                        <div className="oc-sub">Your items are on their way</div>
-                        <div className="oc-badge">ORDER #{orderDetails.orderId}</div>
                     </div>
+                    <div className="oc-title">Order Confirmed!</div>
+                    <div className="oc-sub">Thank you for your purchase</div>
 
                     <div className="oc-shimmer" />
 
-                    <div className="oc-pop-row">
-                        <div className="oc-pop l">
-                            <div className="oc-pop-icon">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <rect x="1" y="3" width="14" height="10" rx="2" stroke="#000" strokeWidth="1.5" />
-                                    <path d="M1 7h14" stroke="#000" strokeWidth="1.5" />
-                                </svg>
-                            </div>
-                            <div className="oc-pop-label">Payment</div>
-                            <div className="oc-pop-val">
-                                {orderDetails.paymentMethod === 'cod'
-                                    ? 'Cash on Delivery'
-                                    : orderDetails.paymentMethod === 'upi'
-                                      ? 'UPI'
-                                      : 'Card'}
-                            </div>
+                    <div className="oc-countdown-container">
+                        <div className="oc-countdown-text">Redirecting to your orders...</div>
+                        <div className="oc-countdown-bar">
+                            <div className="oc-countdown-progress" />
                         </div>
-                        <div className="oc-pop c">
-                            <div className="oc-pop-icon">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path
-                                        d="M2 14L5 5H11L14 14H2Z"
-                                        stroke="#000"
-                                        strokeWidth="1.3"
-                                        strokeLinejoin="round"
-                                    />
-                                    <path
-                                        d="M5 5L8 2L11 5"
-                                        stroke="#000"
-                                        strokeWidth="1.3"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    />
-                                </svg>
-                            </div>
-                            <div className="oc-pop-label">Total</div>
-                            <div className="oc-pop-val" style={{ fontSize: 17 }}>
-                                ₹{orderDetails.total.toLocaleString()}
-                            </div>
-                        </div>
-                        <div className="oc-pop r">
-                            <div className="oc-pop-icon">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path
-                                        d="M1 11L4 4H12L15 11H1Z"
-                                        stroke="#000"
-                                        strokeWidth="1.5"
-                                        strokeLinejoin="round"
-                                    />
-                                    <path d="M4 13h1M11 13h1" stroke="#000" strokeWidth="1.5" strokeLinecap="round" />
-                                </svg>
-                            </div>
-                            <div className="oc-pop-label">Delivery</div>
-                            <div className="oc-pop-val">{orderDetails.estimatedDelivery}</div>
-                        </div>
-                    </div>
-
-                    <div className="oc-detail dl">
-                        <div className="oc-dh">
-                            <div className="oc-dh-icon">
-                                <MapPin size={14} color="#fff" />
-                            </div>
-                            <span className="oc-dh-title">Delivery Address</span>
-                        </div>
-                        <div className="oc-db">
-                            <div className="oc-row">
-                                <span className="oc-rl">Name</span>
-                                <span className="oc-rv">{orderDetails.fullName}</span>
-                            </div>
-                            <div className="oc-row">
-                                <span className="oc-rl">Address</span>
-                                <span className="oc-rv">{orderDetails.address}</span>
-                            </div>
-                            <div className="oc-row">
-                                <span className="oc-rl">Phone</span>
-                                <span className="oc-rv">{orderDetails.phone}</span>
-                            </div>
-                            <div className="oc-row">
-                                <span className="oc-rl">Email</span>
-                                <span className="oc-rv">{orderDetails.email}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="oc-detail dr">
-                        <div className="oc-dh">
-                            <div className="oc-dh-icon">
-                                <Package size={14} color="#fff" />
-                            </div>
-                            <span className="oc-dh-title">Order Summary</span>
-                        </div>
-                        <div className="oc-db">
-                            {items.map((item) => (
-                                <div key={item.id} className="oc-item-row">
-                                    <span className="oc-item-name">
-                                        {item.product_name} x {item.quantity}
-                                    </span>
-                                    <span>₹{(item.product_price * item.quantity).toLocaleString()}</span>
-                                </div>
-                            ))}
-                            <div className="oc-divider">
-                                <div className="oc-row">
-                                    <span className="oc-rl">Subtotal</span>
-                                    <span className="oc-rv">₹{orderDetails.subtotal.toLocaleString()}</span>
-                                </div>
-                                <div className="oc-row">
-                                    <span className="oc-rl">Shipping</span>
-                                    <span className="oc-rv">
-                                        {orderDetails.shipping === 0 ? 'FREE' : `₹${orderDetails.shipping}`}
-                                    </span>
-                                </div>
-                                <div className="oc-row">
-                                    <span className="oc-rl">Tax</span>
-                                    <span className="oc-rv">₹{orderDetails.tax}</span>
-                                </div>
-                                {orderDetails.discount > 0 && (
-                                    <div className="oc-row">
-                                        <span className="oc-rl">Discount</span>
-                                        <span className="oc-rv">-₹{orderDetails.discount}</span>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="oc-total-row">
-                                <span className="oc-total-label">Total Paid</span>
-                                <span className="oc-total-val">₹{orderDetails.total.toLocaleString()}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="oc-actions">
-                        <button className="oc-btn-primary" onClick={closeAndGoOrders}>
-                            View My Orders
-                        </button>
-                        <button className="oc-btn-secondary" onClick={closeAndContinue}>
-                            Continue Shopping
-                        </button>
                     </div>
 
                     <div className="oc-trust">

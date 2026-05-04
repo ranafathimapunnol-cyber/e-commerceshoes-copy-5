@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { CartContext } from '../../context/CartContext'; // ✅ Fixed path
 import { WishlistContext } from '../../context/WishlistContext'; // ✅ Fixed path
-
+import api from '../../utils/api';
 import { ArrowRight, Sparkles, Eye, ShoppingBag, Star, TrendingUp, Zap, Award } from 'lucide-react';
 
 function Featured() {

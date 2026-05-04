@@ -93,8 +93,9 @@ function PremiumBlackWhiteNavbar() {
         <nav className="fixed top-0 left-0 w-full z-50 bg-transparent py-4">
             <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
                 {/* LOGO */}
+
                 <img
-                    src={location.pathname === '/' ? '/logo.png' : '/logo2.png'}
+                    src={navTextColor === 'white' ? '/logo.png' : '/logo2.png'}
                     className="h-28 object-contain cursor-pointer"
                     alt="logo"
                     onClick={() => navigate('/')}

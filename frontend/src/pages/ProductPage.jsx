@@ -1,7 +1,7 @@
 import { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Heart, ShoppingBag, ChevronLeft, Star, Truck, RotateCcw, Shield, AlertCircle, X, Check } from 'lucide-react';
+import { ShoppingBag, ChevronLeft, Star, Truck, RotateCcw, Shield, AlertCircle, X, Check } from 'lucide-react';
 
 import { WishlistContext } from '../context/WishlistContext';
 import { CartContext } from '../context/CartContext';
@@ -132,7 +132,6 @@ function ProductDetail() {
     const [sizeError, setSizeError] = useState(false);
     const [addingToCart, setAddingToCart] = useState(false);
 
-    const { toggleWishlist, isInWishlist } = useContext(WishlistContext);
     const { addToCart } = useContext(CartContext);
 
     useEffect(() => {
@@ -179,7 +178,7 @@ function ProductDetail() {
         return `http://127.0.0.1:8000${img}`;
     };
 
-    // FIXED: Handle Add to Cart - Pass only product ID and quantity
+    // Handle Add to Cart
     const handleAddToCart = async () => {
         if (!selectedSize) {
             setSizeError(true);
@@ -190,7 +189,6 @@ function ProductDetail() {
         setAddingToCart(true);
 
         try {
-            // Call addToCart with product ID and quantity only
             await addToCart(product.id, 1);
             setToastMessage(`${product.name} added to cart!`);
             setShowToast(true);
@@ -205,7 +203,7 @@ function ProductDetail() {
         }
     };
 
-    // FIXED: Handle Buy Now
+    // Handle Buy Now
     const handleBuyNow = async () => {
         if (!selectedSize) {
             setSizeError(true);
@@ -241,7 +239,6 @@ function ProductDetail() {
     }
 
     const images = product.images?.length ? product.images : [product.image].filter(Boolean);
-    const wishlisted = isInWishlist(product.id);
 
     return (
         <div className="min-h-screen bg-white pt-20 pb-16 px-6 md:px-12">
@@ -264,11 +261,6 @@ function ProductDetail() {
                             alt={product.name}
                             className="w-full h-full object-cover hover:scale-105 transition duration-500"
                         />
-                        <button
-                            onClick={() => toggleWishlist(product.id)}
-                            className="absolute top-4 right-4 bg-white p-2.5 rounded-full shadow-md hover:scale-110 transition">
-                            <Heart size={18} className={wishlisted ? 'fill-black text-black' : 'text-gray-600'} />
-                        </button>
                     </div>
 
                     {/* Thumbnails */}
@@ -365,7 +357,7 @@ function ProductDetail() {
                         </div>
                     )}
 
-                    {/* ACTION BUTTONS - FIXED */}
+                    {/* ACTION BUTTONS */}
                     <div className="flex gap-3 pt-4">
                         <button
                             onClick={handleAddToCart}
@@ -405,21 +397,5 @@ function ProductDetail() {
         </div>
     );
 }
-<button
-    onClick={() => {
-        const cart = localStorage.getItem('cart');
-        const cartData = JSON.parse(cart);
-        console.log('Cart items:', cartData?.items);
-        alert(
-            JSON.stringify(
-                cartData?.items?.map((i) => i.product_id || i.id),
-                null,
-                2,
-            ),
-        );
-    }}
-    className="fixed bottom-4 right-4 bg-black text-white px-3 py-2 rounded-lg text-xs z-50">
-    Debug Cart
-</button>;
 
 export default ProductDetail;

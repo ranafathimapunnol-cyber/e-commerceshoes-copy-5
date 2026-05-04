@@ -1,5 +1,4 @@
-import axios from "axios";
-
+import api from '../utils/api';
 const BASE_URL = "http://127.0.0.1:8000/api/products/";
 
 // helper for auth
