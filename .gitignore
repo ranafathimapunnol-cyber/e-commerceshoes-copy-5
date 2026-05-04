@@ -1,0 +1,12 @@
+# dependencies
+node_modules/
+
+# env
+.env
+
+# python
+__pycache__/
+*.pyc
+
+# media uploads
+media/
