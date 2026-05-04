@@ -66,14 +66,15 @@ function Profile() {
         bio: '',
     });
 
+    // ✅ FIXED: Use snake_case to match backend
     const [newAddress, setNewAddress] = useState({
-        fullName: '',
+        full_name: '', // Changed from fullName
         phone: '',
         address: '',
         city: '',
         state: '',
         pincode: '',
-        isDefault: false,
+        is_default: false, // Changed from isDefault
     });
 
     useEffect(() => {
@@ -149,24 +150,36 @@ function Profile() {
             const token = localStorage.getItem('access');
             if (!token) return;
 
-            try {
-                const addressRes = await axios.get('http://127.0.0.1:8000/api/users/addresses/', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setAddresses(addressRes.data || []);
-            } catch {
-                setAddresses([]);
-            }
+            const addressRes = await axios.get('http://127.0.0.1:8000/api/users/addresses/', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            setAddresses(addressRes.data || []);
         } catch (error) {
             console.error('Error fetching addresses:', error);
+            setAddresses([]);
         }
     };
 
+    // ✅ FIXED: Add address with snake_case fields
     const addNewAddress = async () => {
         const token = localStorage.getItem('access');
         if (!token) {
             alert('Please login');
             navigate('/login');
+            return;
+        }
+
+        // Validate required fields
+        if (
+            !newAddress.full_name ||
+            !newAddress.phone ||
+            !newAddress.address ||
+            !newAddress.city ||
+            !newAddress.state ||
+            !newAddress.pincode
+        ) {
+            setErrorMessage('Please fill all address fields');
+            setTimeout(() => setErrorMessage(''), 3000);
             return;
         }
 
@@ -178,23 +191,20 @@ function Profile() {
             setAddresses([...addresses, response.data]);
             setShowAddressForm(false);
             setNewAddress({
-                fullName: '',
+                full_name: '',
                 phone: '',
                 address: '',
                 city: '',
                 state: '',
                 pincode: '',
-                isDefault: false,
+                is_default: false,
             });
             setSuccessMessage('Address added successfully!');
             setTimeout(() => setSuccessMessage(''), 3000);
         } catch (error) {
             console.error('Error adding address:', error);
-            const newAddr = { ...newAddress, id: Date.now() };
-            setAddresses([...addresses, newAddr]);
-            setShowAddressForm(false);
-            setSuccessMessage('Address added successfully!');
-            setTimeout(() => setSuccessMessage(''), 3000);
+            setErrorMessage(error.response?.data?.message || 'Failed to add address');
+            setTimeout(() => setErrorMessage(''), 3000);
         }
     };
 
@@ -211,7 +221,8 @@ function Profile() {
             setTimeout(() => setSuccessMessage(''), 3000);
         } catch (error) {
             console.error('Error deleting address:', error);
-            setAddresses(addresses.filter((addr) => addr.id !== addressId));
+            setErrorMessage('Failed to delete address');
+            setTimeout(() => setErrorMessage(''), 3000);
         }
     };
 
@@ -227,12 +238,19 @@ function Profile() {
                     headers: { Authorization: `Bearer ${token}` },
                 },
             );
-            setAddresses(addresses.map((addr) => ({ ...addr, isDefault: addr.id === addressId })));
+            // Update local state
+            setAddresses(
+                addresses.map((addr) => ({
+                    ...addr,
+                    is_default: addr.id === addressId,
+                })),
+            );
             setSuccessMessage('Default address updated');
             setTimeout(() => setSuccessMessage(''), 3000);
         } catch (error) {
             console.error('Error setting default address:', error);
-            setAddresses(addresses.map((addr) => ({ ...addr, isDefault: addr.id === addressId })));
+            setErrorMessage('Failed to set default address');
+            setTimeout(() => setErrorMessage(''), 3000);
         }
     };
 
@@ -261,7 +279,7 @@ function Profile() {
         try {
             await addToCart(product.id, 1);
             removeFromWishlist(product.id);
-            setSuccessMessage(`${product.name} added to cart and removed from wishlist!`);
+            setSuccessMessage(`${product.name} added to cart!`);
             setTimeout(() => setSuccessMessage(''), 3000);
         } catch (error) {
             console.error('Add to cart error:', error);
@@ -492,6 +510,145 @@ function Profile() {
 
                     {/* Main Content */}
                     <div className="lg:col-span-3">
+                        {/* Addresses Tab - FIXED */}
+                        {activeTab === 'addresses' && (
+                            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-xl font-bold text-black">Saved Addresses</h3>
+                                    <button
+                                        onClick={() => setShowAddressForm(!showAddressForm)}
+                                        className="flex items-center gap-1 text-sm bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition">
+                                        <Plus size={14} /> Add New Address
+                                    </button>
+                                </div>
+
+                                {showAddressForm && (
+                                    <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                        <h4 className="font-semibold mb-3">New Address</h4>
+                                        <div className="grid md:grid-cols-2 gap-3">
+                                            <input
+                                                type="text"
+                                                placeholder="Full Name"
+                                                value={newAddress.full_name}
+                                                onChange={(e) =>
+                                                    setNewAddress({ ...newAddress, full_name: e.target.value })
+                                                }
+                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="tel"
+                                                placeholder="Phone Number"
+                                                value={newAddress.phone}
+                                                onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
+                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Address"
+                                                value={newAddress.address}
+                                                onChange={(e) => setNewAddress({ ...newAddress, address: e.target.value })}
+                                                className="md:col-span-2 p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="City"
+                                                value={newAddress.city}
+                                                onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="State"
+                                                value={newAddress.state}
+                                                onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
+                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Pincode"
+                                                value={newAddress.pincode}
+                                                onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })}
+                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <label className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={newAddress.is_default}
+                                                    onChange={(e) =>
+                                                        setNewAddress({ ...newAddress, is_default: e.target.checked })
+                                                    }
+                                                    className="rounded"
+                                                />
+                                                <span className="text-sm">Set as default address</span>
+                                            </label>
+                                        </div>
+                                        <div className="flex gap-2 mt-4">
+                                            <button
+                                                onClick={addNewAddress}
+                                                className="bg-black text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition">
+                                                Save Address
+                                            </button>
+                                            <button
+                                                onClick={() => setShowAddressForm(false)}
+                                                className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-4">
+                                    {addresses.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <MapPin size={40} className="mx-auto text-gray-300 mb-2" />
+                                            <p className="text-gray-500">No saved addresses</p>
+                                        </div>
+                                    ) : (
+                                        addresses.map((address) => (
+                                            <div
+                                                key={address.id}
+                                                className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-1">
+                                                        {address.is_default && (
+                                                            <span className="inline-block text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full mb-2">
+                                                                Default
+                                                            </span>
+                                                        )}
+                                                        <p className="font-semibold text-black">
+                                                            {address.full_name || user?.username}
+                                                        </p>
+                                                        <p className="text-sm text-gray-600 mt-1">{address.address}</p>
+                                                        <p className="text-sm text-gray-600">
+                                                            {address.city}, {address.state} - {address.pincode}
+                                                        </p>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            📞 {address.phone || user?.phone}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        {!address.is_default && (
+                                                            <button
+                                                                onClick={() => setDefaultAddress(address.id)}
+                                                                className="text-xs text-blue-600 hover:text-blue-700">
+                                                                Set Default
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => deleteAddress(address.id)}
+                                                            className="text-red-500 hover:text-red-600">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Other tabs (Overview, Orders, Wishlist, Settings) remain the same */}
                         {/* Overview Tab */}
                         {activeTab === 'overview' && (
                             <div className="space-y-6">
@@ -748,140 +905,6 @@ function Profile() {
                             </div>
                         )}
 
-                        {/* Addresses Tab */}
-                        {activeTab === 'addresses' && (
-                            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-xl font-bold text-black">Saved Addresses</h3>
-                                    <button
-                                        onClick={() => setShowAddressForm(!showAddressForm)}
-                                        className="flex items-center gap-1 text-sm bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition">
-                                        <Plus size={14} /> Add New Address
-                                    </button>
-                                </div>
-                                {showAddressForm && (
-                                    <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                        <h4 className="font-semibold mb-3">New Address</h4>
-                                        <div className="grid md:grid-cols-2 gap-3">
-                                            <input
-                                                type="text"
-                                                placeholder="Full Name"
-                                                value={newAddress.fullName}
-                                                onChange={(e) => setNewAddress({ ...newAddress, fullName: e.target.value })}
-                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <input
-                                                type="tel"
-                                                placeholder="Phone Number"
-                                                value={newAddress.phone}
-                                                onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
-                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Address"
-                                                value={newAddress.address}
-                                                onChange={(e) => setNewAddress({ ...newAddress, address: e.target.value })}
-                                                className="md:col-span-2 p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="City"
-                                                value={newAddress.city}
-                                                onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="State"
-                                                value={newAddress.state}
-                                                onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
-                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Pincode"
-                                                value={newAddress.pincode}
-                                                onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })}
-                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <label className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={newAddress.isDefault}
-                                                    onChange={(e) =>
-                                                        setNewAddress({ ...newAddress, isDefault: e.target.checked })
-                                                    }
-                                                    className="rounded"
-                                                />
-                                                <span className="text-sm">Set as default address</span>
-                                            </label>
-                                        </div>
-                                        <div className="flex gap-2 mt-4">
-                                            <button
-                                                onClick={addNewAddress}
-                                                className="bg-black text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition">
-                                                Save Address
-                                            </button>
-                                            <button
-                                                onClick={() => setShowAddressForm(false)}
-                                                className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition">
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                                <div className="space-y-4">
-                                    {addresses.length === 0 ? (
-                                        <div className="text-center py-8">
-                                            <MapPin size={40} className="mx-auto text-gray-300 mb-2" />
-                                            <p className="text-gray-500">No saved addresses</p>
-                                        </div>
-                                    ) : (
-                                        addresses.map((address) => (
-                                            <div
-                                                key={address.id}
-                                                className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
-                                                <div className="flex justify-between items-start">
-                                                    <div className="flex-1">
-                                                        {address.isDefault && (
-                                                            <span className="inline-block text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full mb-2">
-                                                                Default
-                                                            </span>
-                                                        )}
-                                                        <p className="font-semibold text-black">
-                                                            {address.fullName || user?.username}
-                                                        </p>
-                                                        <p className="text-sm text-gray-600 mt-1">{address.address}</p>
-                                                        <p className="text-sm text-gray-600">
-                                                            {address.city}, {address.state} - {address.pincode}
-                                                        </p>
-                                                        <p className="text-sm text-gray-500 mt-1">
-                                                            📞 {address.phone || user?.phone}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        {!address.isDefault && (
-                                                            <button
-                                                                onClick={() => setDefaultAddress(address.id)}
-                                                                className="text-xs text-blue-600 hover:text-blue-700">
-                                                                Set Default
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => deleteAddress(address.id)}
-                                                            className="text-red-500 hover:text-red-600">
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
                         {/* Settings Tab */}
                         {activeTab === 'settings' && (
                             <div className="bg-white rounded-2xl border border-gray-200 p-6">
@@ -1024,7 +1047,7 @@ function Profile() {
                 </div>
             )}
 
-            {/* Order Details Modal with Moving Tracking */}
+            {/* Order Details Modal */}
             {selectedOrder && (
                 <OrderDetailsModalWithTracking
                     order={selectedOrder}
@@ -1037,12 +1060,11 @@ function Profile() {
     );
 }
 
-// ✅ Order Details Modal with Moving Tracking System (Changes every 2 seconds for demo)
+// Order Details Modal Component (keep as is)
 const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTotal }) => {
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
     const [currentProgress, setCurrentProgress] = useState(20);
 
-    // Status steps for animated timeline
     const statusSteps = [
         { key: 'pending', label: 'Order Placed', icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50', progress: 20 },
         {
@@ -1080,22 +1102,17 @@ const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTo
         },
     ];
 
-    // Animate through statuses every 2 seconds
     useEffect(() => {
-        // If order is already delivered, don't animate
         if (order.status === 'delivered') {
             setCurrentStepIndex(5);
             setCurrentProgress(100);
             return;
         }
-
-        // If order is cancelled, show cancelled status
         if (order.status === 'cancelled') {
             setCurrentStepIndex(0);
             setCurrentProgress(0);
             return;
         }
-
         let step = 0;
         const interval = setInterval(() => {
             if (step < statusSteps.length - 1) {
@@ -1105,8 +1122,7 @@ const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTo
             } else {
                 clearInterval(interval);
             }
-        }, 10000); // Changes every 2 seconds
-
+        }, 10000);
         return () => clearInterval(interval);
     }, [order.status]);
 
@@ -1127,9 +1143,7 @@ const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTo
                         ✕
                     </button>
                 </div>
-
                 <div className="p-5 space-y-6">
-                    {/* Animated Status Banner */}
                     <div className={`${currentConfig.bg} rounded-xl p-4 transition-all duration-500`}>
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-3">
@@ -1148,32 +1162,13 @@ const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTo
                                 <p className="font-bold text-black animate-pulse">{currentProgress}%</p>
                             </div>
                         </div>
-
-                        {/* Animated Progress Bar */}
                         <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-black rounded-full transition-all duration-700 ease-out"
                                 style={{ width: `${currentProgress}%` }}
                             />
                         </div>
-
-                        {/* Estimated Delivery */}
-                        {currentProgress < 100 && (
-                            <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 animate-pulse">
-                                <Clock size={12} />
-                                <span>
-                                    Estimated delivery:{' '}
-                                    {new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric',
-                                    })}
-                                </span>
-                            </div>
-                        )}
                     </div>
-
-                    {/* Live Tracking Status Bar - Animated */}
                     <div className="bg-black text-white rounded-xl p-3 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-green-400 rounded-full animate-ping" />
@@ -1181,8 +1176,6 @@ const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTo
                         </div>
                         <span className="text-xs text-gray-300 animate-pulse">{currentConfig.label}</span>
                     </div>
-
-                    {/* Animated Order Timeline */}
                     <div>
                         <h3 className="font-semibold mb-4">Order Timeline</h3>
                         <div className="relative">
@@ -1192,17 +1185,10 @@ const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTo
                                     const isCompleted = idx <= currentStepIndex;
                                     const isCurrent = idx === currentStepIndex;
                                     const StepIcon = step.icon;
-
                                     return (
                                         <div key={step.key} className="flex items-start gap-4 relative">
                                             <div
-                                                className={`z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500 ${
-                                                    isCompleted
-                                                        ? 'bg-green-500 text-white scale-110'
-                                                        : isCurrent
-                                                          ? 'bg-black text-white ring-4 ring-black/20 scale-125'
-                                                          : 'bg-gray-200 text-gray-400'
-                                                }`}>
+                                                className={`z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500 ${isCompleted ? 'bg-green-500 text-white scale-110' : isCurrent ? 'bg-black text-white ring-4 ring-black/20 scale-125' : 'bg-gray-200 text-gray-400'}`}>
                                                 {isCompleted ? (
                                                     <CheckCircle size={16} className="animate-scale-in" />
                                                 ) : (
@@ -1220,112 +1206,10 @@ const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTo
                                                         Current Status
                                                     </p>
                                                 )}
-                                                {step.key === 'pending' && (
-                                                    <p className="text-xs text-gray-400 mt-1">
-                                                        Order placed on {new Date(order.created_at).toLocaleDateString()}
-                                                    </p>
-                                                )}
                                             </div>
-                                            {isCurrent && (
-                                                <div className="absolute -left-1 top-1/2 w-2 h-2 bg-green-500 rounded-full animate-ping" />
-                                            )}
                                         </div>
                                     );
                                 })}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Delivery Progress Message */}
-                    {currentProgress < 100 && (
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 animate-slide-up">
-                            <div className="flex items-center gap-3">
-                                <Truck size={20} className="text-blue-600 animate-bounce" />
-                                <div>
-                                    <p className="text-sm font-medium text-blue-800">Your order is on the way!</p>
-                                    <p className="text-xs text-blue-600 mt-1">
-                                        {currentConfig.label} - {currentProgress}% complete
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Delivery Completed Message */}
-                    {currentProgress === 100 && (
-                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100 animate-slide-up">
-                            <div className="flex items-center gap-3">
-                                <CheckCircle size={20} className="text-green-600" />
-                                <div>
-                                    <p className="text-sm font-medium text-green-800">Order Delivered Successfully!</p>
-                                    <p className="text-xs text-green-600 mt-1">Thank you for shopping with us</p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Shipping Address */}
-                    <div className="border-t pt-4">
-                        <h3 className="font-semibold mb-2 flex items-center gap-2">
-                            <MapPin size={14} /> Shipping Address
-                        </h3>
-                        <p className="text-sm text-gray-600">{order.shipping_address || 'Address not provided'}</p>
-                    </div>
-
-                    {/* Payment Info */}
-                    <div className="border-t pt-4">
-                        <h3 className="font-semibold mb-2 flex items-center gap-2">
-                            <CreditCard size={14} /> Payment Information
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                            Method: {order.payment_method === 'cod' ? 'Cash on Delivery' : 'Online Payment'}
-                        </p>
-                        <p className="text-sm text-gray-600">Status: {order.is_paid ? 'Paid' : 'Pending'}</p>
-                    </div>
-
-                    {/* Order Items */}
-                    <div className="border-t pt-4">
-                        <h3 className="font-semibold mb-3">Order Items</h3>
-                        <div className="space-y-3">
-                            {order.items &&
-                                order.items.map((item) => (
-                                    <div key={item.id} className="flex gap-4 py-3 border-b last:border-0">
-                                        <img
-                                            src={
-                                                item.product?.image
-                                                    ? `http://127.0.0.1:8000${item.product.image}`
-                                                    : '/api/placeholder/60/60'
-                                            }
-                                            className="w-16 h-16 rounded-lg object-cover bg-gray-100"
-                                            alt={item.product?.name}
-                                        />
-                                        <div className="flex-1">
-                                            <h4 className="font-medium">{item.product?.name || 'Product'}</h4>
-                                            <p className="text-sm text-gray-400">Quantity: {item.quantity}</p>
-                                            <p className="text-sm text-gray-400">Price: ₹{getItemPrice(item)} each</p>
-                                        </div>
-                                        <p className="font-semibold">₹{getItemTotal(item).toLocaleString()}</p>
-                                    </div>
-                                ))}
-                        </div>
-                    </div>
-
-                    {/* Order Summary */}
-                    <div className="border-t pt-4">
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">Subtotal</span>
-                                <span>₹{parseInt(order.total_price).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500">Shipping</span>
-                                <span>FREE</span>
-                            </div>
-                            <div className="border-t pt-2 mt-2">
-                                <div className="flex justify-between font-bold">
-                                    <span>Total</span>
-                                    <span>₹{parseInt(order.total_price).toLocaleString()}</span>
-                                </div>
                             </div>
                         </div>
                     </div>

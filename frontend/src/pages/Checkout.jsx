@@ -3,7 +3,20 @@ import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import OrderConfirmation from './OrderConfirmation';
-import { CreditCard, ShieldCheck, Truck, ArrowRight, Lock, AlertCircle, Wallet, Smartphone, Clock } from 'lucide-react';
+import {
+    CreditCard,
+    ShieldCheck,
+    Truck,
+    ArrowRight,
+    Lock,
+    AlertCircle,
+    Wallet,
+    Smartphone,
+    Clock,
+    MapPin,
+    Home,
+    CheckCircle,
+} from 'lucide-react';
 
 import { CartContext } from '../context/CartContext';
 
@@ -17,6 +30,9 @@ function Checkout() {
     const [orderPlaced, setOrderPlaced] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [orderDetails, setOrderDetails] = useState(null);
+    const [loadingAddress, setLoadingAddress] = useState(true);
+    const [savedAddresses, setSavedAddresses] = useState([]);
+    const [selectedAddressId, setSelectedAddressId] = useState(null);
 
     const [formData, setFormData] = useState({
         fullName: '',
@@ -32,13 +48,84 @@ function Checkout() {
     const [errors, setErrors] = useState({});
 
     // =========================
+    // FETCH USER PROFILE & ADDRESSES
+    // =========================
+    useEffect(() => {
+        const fetchUserData = async () => {
+            const token = localStorage.getItem('access');
+            if (!token) {
+                setLoadingAddress(false);
+                return;
+            }
+
+            setLoadingAddress(true);
+            try {
+                // Fetch user profile
+                const profileRes = await axios.get('http://127.0.0.1:8000/api/users/profile/', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                const userProfile = profileRes.data;
+
+                setFormData((prev) => ({
+                    ...prev,
+                    fullName: userProfile.full_name || userProfile.username || '',
+                    email: userProfile.email || '',
+                    phone: userProfile.phone || '',
+                }));
+
+                // Fetch saved addresses from backend
+                const addressRes = await axios.get('http://127.0.0.1:8000/api/users/addresses/', {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                const addresses = addressRes.data || [];
+                setSavedAddresses(addresses);
+
+                // Find and auto-fill default address
+                const defaultAddress = addresses.find((addr) => addr.is_default === true);
+                if (defaultAddress) {
+                    setSelectedAddressId(defaultAddress.id);
+                    setFormData((prev) => ({
+                        ...prev,
+                        fullName: defaultAddress.full_name || prev.fullName,
+                        phone: defaultAddress.phone || prev.phone,
+                        address: defaultAddress.address || '',
+                        city: defaultAddress.city || '',
+                        state: defaultAddress.state || '',
+                        pincode: defaultAddress.pincode || '',
+                    }));
+                } else if (addresses.length > 0) {
+                    // If no default, use first address
+                    const firstAddress = addresses[0];
+                    setSelectedAddressId(firstAddress.id);
+                    setFormData((prev) => ({
+                        ...prev,
+                        fullName: firstAddress.full_name || prev.fullName,
+                        phone: firstAddress.phone || prev.phone,
+                        address: firstAddress.address || '',
+                        city: firstAddress.city || '',
+                        state: firstAddress.state || '',
+                        pincode: firstAddress.pincode || '',
+                    }));
+                }
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+            } finally {
+                setLoadingAddress(false);
+            }
+        };
+
+        fetchUserData();
+    }, []);
+
+    // =========================
     // REDIRECT IF CART EMPTY
     // =========================
     useEffect(() => {
-        if (!orderPlaced && items.length === 0) {
+        if (!orderPlaced && items.length === 0 && !loadingAddress) {
             navigate('/cart');
         }
-    }, [items, navigate, orderPlaced]);
+    }, [items, navigate, orderPlaced, loadingAddress]);
 
     // =========================
     // TOTALS
@@ -80,6 +167,27 @@ function Checkout() {
         const { name, value } = e.target;
         setFormData((prev) => ({ ...prev, [name]: value }));
         setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
+
+        // If user manually edits, clear selected address
+        if (name === 'address' || name === 'city' || name === 'state' || name === 'pincode') {
+            setSelectedAddressId(null);
+        }
+    };
+
+    const handleAddressSelect = (addressId) => {
+        const selected = savedAddresses.find((addr) => addr.id === parseInt(addressId));
+        if (selected) {
+            setSelectedAddressId(selected.id);
+            setFormData((prev) => ({
+                ...prev,
+                fullName: selected.full_name || prev.fullName,
+                phone: selected.phone || prev.phone,
+                address: selected.address || '',
+                city: selected.city || '',
+                state: selected.state || '',
+                pincode: selected.pincode || '',
+            }));
+        }
     };
 
     const validateStep = () => {
@@ -262,6 +370,33 @@ function Checkout() {
                         {step === 1 && (
                             <div className="border border-gray-200 rounded-2xl p-6 shadow-sm">
                                 <h2 className="text-2xl font-bold mb-5">Shipping Information</h2>
+
+                                {/* Saved Addresses Dropdown */}
+                                {savedAddresses.length > 0 && (
+                                    <div className="mb-6 p-4 bg-gray-50 rounded-xl">
+                                        <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                                            <Home size={16} /> Use Saved Address
+                                        </label>
+                                        <select
+                                            onChange={(e) => handleAddressSelect(e.target.value)}
+                                            value={selectedAddressId || ''}
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black">
+                                            <option value="">Select a saved address</option>
+                                            {savedAddresses.map((addr) => (
+                                                <option key={addr.id} value={addr.id}>
+                                                    {addr.is_default ? '⭐ ' : ''}
+                                                    {addr.address}, {addr.city} - {addr.pincode}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {selectedAddressId && (
+                                            <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                                                <CheckCircle size={12} /> Using selected address
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
                                 <div className="grid md:grid-cols-2 gap-4">
                                     <InputField
                                         label="Full Name"
