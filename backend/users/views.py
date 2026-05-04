@@ -8,10 +8,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import UserAddress
+import json
+import traceback
 
-# ✅ Import Cart and Wishlist
+# Import Cart and Wishlist
 from cart.models import Cart
-from products.models import Wishlist  # Wishlist is in products app
+from products.models import Wishlist
 
 User = get_user_model()
 
@@ -33,7 +35,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
 
 
 # =========================
-# REGISTER (WITH CART & WISHLIST)
+# REGISTER
 # =========================
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -42,7 +44,6 @@ def register_user(request):
     email = request.data.get('email')
     password = request.data.get('password')
 
-    # validation
     if not username or not email or not password:
         return Response(
             {'error': 'All fields are required'},
@@ -55,19 +56,13 @@ def register_user(request):
     if User.objects.filter(email=email).exists():
         return Response({'error': 'Email already registered'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Create user
     user = User.objects.create_user(
         username=username,
         email=email,
         password=password
     )
 
-    # ✅ Create empty cart for the user
     Cart.objects.create(user=user)
-
-    # ✅ Note: Wishlist is created when user adds first item
-    # No need to create empty wishlist here since Wishlist model requires a product
-    # Wishlist items will be created when user adds products to wishlist
 
     return Response({
         'message': 'User created successfully',
@@ -80,7 +75,7 @@ def register_user(request):
 
 
 # =========================
-# USER PROFILE (GET & UPDATE)
+# USER PROFILE
 # =========================
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
@@ -92,12 +87,16 @@ def profile(request):
         return Response(serializer.data)
 
     elif request.method == 'PUT':
-        serializer = UserUpdateSerializer(
-            user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            serializer = UserUpdateSerializer(
+                user, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print(f"Error updating profile: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # =========================
@@ -111,12 +110,14 @@ def get_user_profile(request):
         'id': user.id,
         'username': user.username,
         'email': user.email,
-        'profile_picture': user.profile_picture.url if user.profile_picture else None
+        'phone': user.phone,
+        'profile_picture': user.profile_picture.url if user.profile_picture else None,
+        'bio': user.bio
     })
 
 
 # =========================
-# ADDRESS VIEWS
+# ADDRESS VIEWS - COMPLETELY REWRITTEN
 # =========================
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
@@ -124,76 +125,171 @@ def user_addresses(request):
     user = request.user
 
     if request.method == 'GET':
-        addresses = UserAddress.objects.filter(
-            user=user).order_by('-is_default', '-created_at')
-        serializer = UserAddressSerializer(addresses, many=True)
-        return Response(serializer.data)
+        try:
+            addresses = UserAddress.objects.filter(
+                user=user).order_by('-is_default', '-created_at')
+            serializer = UserAddressSerializer(addresses, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            print("GET Addresses Error:", str(e))
+            print(traceback.format_exc())
+            return Response(
+                {'error': f'Failed to fetch addresses: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     elif request.method == 'POST':
-        serializer = UserAddressSerializer(data=request.data)
+        try:
+            # Log incoming data for debugging
+            print("POST Address Data:", request.data)
 
-        if serializer.is_valid():
-            is_default = serializer.validated_data.get('is_default', False)
+            # Validate required fields
+            required_fields = ['address', 'city', 'state', 'pincode']
+            missing_fields = [
+                field for field in required_fields if not request.data.get(field)]
 
-            if is_default or not UserAddress.objects.filter(user=user).exists():
-                UserAddress.objects.filter(user=user).update(is_default=False)
-                serializer.save(user=user, is_default=True)
+            if missing_fields:
+                return Response(
+                    {'error': f'Missing required fields: {", ".join(missing_fields)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Prepare data for serializer
+            address_data = {
+                'full_name': request.data.get('full_name', ''),
+                'phone': request.data.get('phone', ''),
+                'address': request.data.get('address', ''),
+                'city': request.data.get('city', ''),
+                'state': request.data.get('state', ''),
+                'pincode': request.data.get('pincode', ''),
+                'is_default': request.data.get('is_default', False)
+            }
+
+            serializer = UserAddressSerializer(data=address_data)
+
+            if serializer.is_valid():
+                # Check if this is the first address for the user
+                user_address_count = UserAddress.objects.filter(
+                    user=user).count()
+                is_default = address_data['is_default']
+
+                # If no addresses exist, force this to be default
+                if user_address_count == 0:
+                    is_default = True
+                elif is_default:
+                    # Remove default from all other addresses
+                    UserAddress.objects.filter(
+                        user=user).update(is_default=False)
+
+                # Save the address
+                address = UserAddress.objects.create(
+                    user=user,
+                    full_name=address_data['full_name'],
+                    phone=address_data['phone'],
+                    address=address_data['address'],
+                    city=address_data['city'],
+                    state=address_data['state'],
+                    pincode=address_data['pincode'],
+                    is_default=is_default
+                )
+
+                # Return the saved address
+                response_serializer = UserAddressSerializer(address)
+                return Response(response_serializer.data, status=status.HTTP_201_CREATED)
             else:
-                serializer.save(user=user)
+                print("Serializer validation errors:", serializer.errors)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            print("POST Address Error:", str(e))
+            print(traceback.format_exc())
+            return Response(
+                {'error': f'Failed to save address: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @api_view(['PUT', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def user_address_detail(request, address_id):
+    user = request.user
+
     try:
-        address = UserAddress.objects.get(id=address_id, user=request.user)
+        address = UserAddress.objects.get(id=address_id, user=user)
     except UserAddress.DoesNotExist:
-        return Response({'error': 'Address not found'}, status=404)
+        return Response({'error': 'Address not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     if request.method == 'PUT':
-        serializer = UserAddressSerializer(
-            address, data=request.data, partial=True)
-        if serializer.is_valid():
-            is_default = serializer.validated_data.get(
-                'is_default', address.is_default)
-
-            if is_default and not address.is_default:
-                UserAddress.objects.filter(user=request.user).exclude(
+        try:
+            # Update address fields
+            if 'full_name' in request.data:
+                address.full_name = request.data['full_name']
+            if 'phone' in request.data:
+                address.phone = request.data['phone']
+            if 'address' in request.data:
+                address.address = request.data['address']
+            if 'city' in request.data:
+                address.city = request.data['city']
+            if 'state' in request.data:
+                address.state = request.data['state']
+            if 'pincode' in request.data:
+                address.pincode = request.data['pincode']
+            if 'is_default' in request.data and request.data['is_default']:
+                # Remove default from all other addresses
+                UserAddress.objects.filter(user=user).exclude(
                     id=address_id).update(is_default=False)
-                serializer.save(is_default=True)
-            else:
-                serializer.save()
+                address.is_default = True
 
+            address.save()
+
+            serializer = UserAddressSerializer(address)
             return Response(serializer.data)
-        return Response(serializer.errors, status=400)
+
+        except Exception as e:
+            print("PUT Address Error:", str(e))
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     elif request.method == 'DELETE':
-        if UserAddress.objects.filter(user=request.user).count() <= 1:
-            return Response({'error': 'Cannot delete the only address'}, status=400)
-        address.delete()
-        return Response({'message': 'Address deleted successfully'}, status=200)
+        try:
+            # Don't allow deleting if it's the only address
+            address_count = UserAddress.objects.filter(user=user).count()
+            if address_count <= 1:
+                return Response(
+                    {'error': 'Cannot delete the only address. Add another address first.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            address.delete()
+            return Response({'message': 'Address deleted successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def set_default_address(request, address_id):
+    user = request.user
+
     try:
-        address = UserAddress.objects.get(id=address_id, user=request.user)
+        address = UserAddress.objects.get(id=address_id, user=user)
     except UserAddress.DoesNotExist:
-        return Response({'error': 'Address not found'}, status=404)
+        return Response({'error': 'Address not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Remove default from all other addresses
-    UserAddress.objects.filter(user=request.user).update(is_default=False)
+    try:
+        # Remove default from all other addresses
+        UserAddress.objects.filter(user=user).update(is_default=False)
 
-    # Set this address as default
-    address.is_default = True
-    address.save()
+        # Set this address as default
+        address.is_default = True
+        address.save()
 
-    return Response({'message': 'Default address updated successfully'})
+        return Response({'message': 'Default address updated successfully'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # =========================
@@ -203,15 +299,13 @@ def set_default_address(request, address_id):
 @permission_classes([IsAuthenticated])
 def delete_account(request):
     user = request.user
-    # Delete cart first
     try:
         Cart.objects.filter(user=user).delete()
     except:
         pass
-    # Delete wishlist items
     try:
         Wishlist.objects.filter(user=user).delete()
     except:
         pass
     user.delete()
-    return Response({'message': 'Account deleted successfully'}, status=200)
+    return Response({'message': 'Account deleted successfully'}, status=status.HTTP_200_OK)
