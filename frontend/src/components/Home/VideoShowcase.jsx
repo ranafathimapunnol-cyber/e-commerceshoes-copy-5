@@ -27,15 +27,9 @@ function VideoShowcase() {
         },
     ];
 
-    // ✅ FIXED ONLY THIS PART
+    // ✅ FIXED LOGIC (no login blocking here)
     const handleShopNow = () => {
-        const token = localStorage.getItem('access');
-
-        if (!token) {
-            navigate('/login');
-        } else {
-            navigate('/products');
-        }
+        navigate('/products');
     };
 
     return (

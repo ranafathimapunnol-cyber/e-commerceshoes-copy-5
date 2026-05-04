@@ -7,7 +7,7 @@ import { WishlistContext } from '../../context/WishlistContext'; // ✅ Fixed pa
 import { ArrowRight, Sparkles, Eye, ShoppingBag, Star, TrendingUp, Zap, Award } from 'lucide-react';
 
 function Featured() {
-    const [hoveredIndex, setHoveredIndex] = useState(null);
+    const [hoveredIndex, setHoveredIndex] = useState(null); // For hover effects on products
     const [isVisible, setIsVisible] = useState(false);
     const [loadedImages, setLoadedImages] = useState({});
     const [products, setProducts] = useState([]);
@@ -20,7 +20,7 @@ function Featured() {
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const res = await axios.get('http://127.0.0.1:8000/api/products/');
+                const res = await axios.get('http://127.0.0.1:8000/api/products/'); // Fetch all products
 
                 const featuredProducts = [res.data[20], res.data[19], res.data[15]];
 

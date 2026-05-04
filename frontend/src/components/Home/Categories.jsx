@@ -15,7 +15,7 @@ function Categories() {
     // ====================================
     const handleClick = (category) => {
         // NO LOGIN REQUIRED
-        navigate(`/shop/${category.toLowerCase()}`);
+        navigate(`/shop/${category.toLowerCase()}`); // Navigate to category page (e.g., /shop/men)
     };
 
     return (

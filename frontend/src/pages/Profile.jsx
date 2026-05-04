@@ -227,57 +227,40 @@ function Profile() {
                     headers: { Authorization: `Bearer ${token}` },
                 },
             );
-            setAddresses(
-                addresses.map((addr) => ({
-                    ...addr,
-                    isDefault: addr.id === addressId,
-                })),
-            );
+            setAddresses(addresses.map((addr) => ({ ...addr, isDefault: addr.id === addressId })));
             setSuccessMessage('Default address updated');
             setTimeout(() => setSuccessMessage(''), 3000);
         } catch (error) {
             console.error('Error setting default address:', error);
-            setAddresses(
-                addresses.map((addr) => ({
-                    ...addr,
-                    isDefault: addr.id === addressId,
-                })),
-            );
+            setAddresses(addresses.map((addr) => ({ ...addr, isDefault: addr.id === addressId })));
         }
     };
 
     const removeFromWishlist = async (productId) => {
         setWishlistItems((prev) => prev.filter((item) => item.id !== productId));
-
         const localWishlist = localStorage.getItem('wishlist');
         if (localWishlist) {
             const parsed = JSON.parse(localWishlist);
             const updated = parsed.filter((p) => p.id !== productId);
             localStorage.setItem('wishlist', JSON.stringify(updated));
         }
-
         toggleWishlist(productId);
-
         setSuccessMessage('Removed from wishlist');
         setTimeout(() => setSuccessMessage(''), 3000);
     };
 
     const handleAddToCart = async (product, e) => {
         e.stopPropagation();
-
         const token = localStorage.getItem('access');
         if (!token) {
             alert('Please login to add items to cart');
             navigate('/login');
             return;
         }
-
         setAddingToCart((prev) => ({ ...prev, [product.id]: true }));
-
         try {
             await addToCart(product.id, 1);
             removeFromWishlist(product.id);
-
             setSuccessMessage(`${product.name} added to cart and removed from wishlist!`);
             setTimeout(() => setSuccessMessage(''), 3000);
         } catch (error) {
@@ -294,22 +277,15 @@ function Profile() {
     const handleProfilePictureUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
-
         const formData = new FormData();
         formData.append('profile_picture', file);
-
         setUploading(true);
         setErrorMessage('');
-
         try {
             const token = localStorage.getItem('access');
             const response = await axios.put('http://127.0.0.1:8000/api/users/profile/', formData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data',
-                },
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
             });
-
             setUser((prev) => ({ ...prev, profile_picture: response.data.profile_picture }));
             setSuccessMessage('Profile picture updated!');
             setTimeout(() => setSuccessMessage(''), 3000);
@@ -322,28 +298,19 @@ function Profile() {
         }
     };
 
-    // Delete Profile Picture function
     const handleDeleteProfilePicture = async () => {
-        if (!window.confirm('Are you sure you want to remove your profile picture?')) {
-            return;
-        }
-
+        if (!window.confirm('Are you sure you want to remove your profile picture?')) return;
         setUploading(true);
         setErrorMessage('');
-
         try {
             const token = localStorage.getItem('access');
-            const response = await axios.put(
+            await axios.put(
                 'http://127.0.0.1:8000/api/users/profile/',
                 { profile_picture: null },
                 {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
                 },
             );
-
             setUser((prev) => ({ ...prev, profile_picture: null }));
             setSuccessMessage('Profile picture removed successfully!');
             setTimeout(() => setSuccessMessage(''), 3000);
@@ -360,13 +327,11 @@ function Profile() {
     const handleSaveProfile = async () => {
         setSaveLoading(true);
         setErrorMessage('');
-
         try {
             const token = localStorage.getItem('access');
             const response = await axios.put('http://127.0.0.1:8000/api/users/profile/', editForm, {
                 headers: { Authorization: `Bearer ${token}` },
             });
-
             setUser((prev) => ({ ...prev, ...response.data }));
             setIsEditing(false);
             setSuccessMessage('Profile updated successfully!');
@@ -386,41 +351,24 @@ function Profile() {
         navigate('/login');
     };
 
-    const getInitials = (name) => {
-        return name ? name.charAt(0).toUpperCase() : 'U';
-    };
-
+    const getInitials = (name) => (name ? name.charAt(0).toUpperCase() : 'U');
     const getProfileImageUrl = () => {
         if (user?.profile_picture) {
-            if (user.profile_picture.startsWith('http')) {
-                return user.profile_picture;
-            }
+            if (user.profile_picture.startsWith('http')) return user.profile_picture;
             return `http://127.0.0.1:8000${user.profile_picture}`;
         }
         return null;
     };
 
-    const getTotalSpent = () => {
-        return orders.reduce((total, order) => total + (parseFloat(order.total_price) || 0), 0);
-    };
-
-    const getOrderStats = () => {
-        return {
-            total: orders.length,
-            delivered: orders.filter((o) => o.status === 'delivered').length,
-            pending: orders.filter((o) => o.status === 'pending').length,
-            cancelled: orders.filter((o) => o.status === 'cancelled').length,
-        };
-    };
-
-    const getItemPrice = (item) => {
-        return item.price || item.product?.price || item.item_price || 0;
-    };
-
-    const getItemTotal = (item) => {
-        const price = getItemPrice(item);
-        return price * item.quantity;
-    };
+    const getTotalSpent = () => orders.reduce((total, order) => total + (parseFloat(order.total_price) || 0), 0);
+    const getOrderStats = () => ({
+        total: orders.length,
+        delivered: orders.filter((o) => o.status === 'delivered').length,
+        pending: orders.filter((o) => o.status === 'pending').length,
+        cancelled: orders.filter((o) => o.status === 'cancelled').length,
+    });
+    const getItemPrice = (item) => item.price || item.product?.price || item.item_price || 0;
+    const getItemTotal = (item) => getItemPrice(item) * item.quantity;
 
     if (loading) {
         return (
@@ -444,16 +392,14 @@ function Profile() {
                 {successMessage && (
                     <div className="fixed top-24 right-4 z-50 animate-slide-down">
                         <div className="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg">
-                            <CheckCircle size={16} />
-                            {successMessage}
+                            <CheckCircle size={16} /> {successMessage}
                         </div>
                     </div>
                 )}
                 {errorMessage && (
                     <div className="fixed top-24 right-4 z-50 animate-slide-down">
                         <div className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-lg">
-                            <AlertCircle size={16} />
-                            {errorMessage}
+                            <AlertCircle size={16} /> {errorMessage}
                         </div>
                     </div>
                 )}
@@ -468,10 +414,8 @@ function Profile() {
                     {/* Sidebar */}
                     <div className="lg:col-span-1">
                         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden sticky top-28">
-                            {/* Profile Summary with Picture Upload - Clean Design */}
                             <div className="p-6 text-center border-b border-gray-100">
                                 <div className="relative inline-block group">
-                                    {/* Profile Image or Initials - Clickable to zoom */}
                                     {profileImage ? (
                                         <img
                                             src={profileImage}
@@ -484,8 +428,6 @@ function Profile() {
                                             {getInitials(user?.username)}
                                         </div>
                                     )}
-
-                                    {/* Camera Button - Only for upload */}
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
                                         disabled={uploading}
@@ -496,7 +438,6 @@ function Profile() {
                                             <Camera size={12} className="text-gray-600" />
                                         )}
                                     </button>
-
                                     <input
                                         type="file"
                                         ref={fileInputRef}
@@ -513,7 +454,6 @@ function Profile() {
                                 </div>
                             </div>
 
-                            {/* Navigation Tabs */}
                             <div className="p-2 space-y-1">
                                 {[
                                     { id: 'overview', label: 'Overview', icon: User },
@@ -525,9 +465,7 @@ function Profile() {
                                     <button
                                         key={tab.id}
                                         onClick={() => setActiveTab(tab.id)}
-                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition ${
-                                            activeTab === tab.id ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'
-                                        }`}>
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition ${activeTab === tab.id ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
                                         <div className="flex items-center gap-3">
                                             <tab.icon size={18} />
                                             <span className="text-sm font-medium">{tab.label}</span>
@@ -546,8 +484,7 @@ function Profile() {
                                 <button
                                     onClick={handleLogout}
                                     className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600 transition">
-                                    <LogOut size={16} />
-                                    Logout
+                                    <LogOut size={16} /> Logout
                                 </button>
                             </div>
                         </div>
@@ -597,14 +534,12 @@ function Profile() {
                                         </div>
                                     ))}
                                 </div>
-
                                 <div className="bg-white rounded-2xl border border-gray-200 p-6">
                                     <h3 className="text-lg font-bold text-black mb-4">Welcome back, {user?.username}!</h3>
                                     <p className="text-gray-600">
                                         You have {orders.length} orders and {wishlistItems.length} items in your wishlist.
                                     </p>
                                 </div>
-
                                 <div className="bg-white rounded-2xl border border-gray-200 p-6">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="text-lg font-bold text-black">Account Information</h3>
@@ -629,7 +564,7 @@ function Profile() {
                                                         <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
                                                     ) : (
                                                         <Save size={12} />
-                                                    )}
+                                                    )}{' '}
                                                     Save
                                                 </button>
                                             </div>
@@ -1043,14 +978,13 @@ function Profile() {
                 </div>
             </div>
 
-            {/* Image Zoom Modal with Remove Button */}
+            {/* Image Zoom Modal */}
             {showImageModal && profileImage && (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
                     onClick={() => setShowImageModal(false)}>
                     <div className="relative max-w-lg w-full mx-4" onClick={(e) => e.stopPropagation()}>
                         <div className="bg-white rounded-2xl overflow-hidden shadow-2xl">
-                            {/* Image Header */}
                             <div className="relative bg-black">
                                 <img
                                     src={profileImage}
@@ -1063,12 +997,9 @@ function Profile() {
                                     <X size={18} className="text-gray-800" />
                                 </button>
                             </div>
-
-                            {/* Modal Footer */}
                             <div className="p-5 text-center">
                                 <h3 className="text-lg font-semibold text-black mb-2">Profile Picture</h3>
                                 <p className="text-sm text-gray-500 mb-4">Click below to remove your profile picture</p>
-
                                 <div className="flex gap-3 justify-center">
                                     <button
                                         onClick={handleDeleteProfilePicture}
@@ -1078,7 +1009,7 @@ function Profile() {
                                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                         ) : (
                                             <Trash2 size={16} />
-                                        )}
+                                        )}{' '}
                                         Remove Picture
                                     </button>
                                     <button
@@ -1093,9 +1024,9 @@ function Profile() {
                 </div>
             )}
 
-            {/* Order Details Modal */}
+            {/* Order Details Modal with Moving Tracking */}
             {selectedOrder && (
-                <OrderDetailsModal
+                <OrderDetailsModalWithTracking
                     order={selectedOrder}
                     onClose={() => setSelectedOrder(null)}
                     getItemPrice={getItemPrice}
@@ -1106,31 +1037,82 @@ function Profile() {
     );
 }
 
-// Order Details Modal Component
-const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
-    const statusConfig = {
-        pending: { icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-        confirmed: { icon: CheckCircle, color: 'text-blue-600', bg: 'bg-blue-50' },
-        shipped: { icon: Truck, color: 'text-purple-600', bg: 'bg-purple-50' },
-        delivered: { icon: Package, color: 'text-green-600', bg: 'bg-green-50' },
-        cancelled: { icon: XCircle, color: 'text-red-600', bg: 'bg-red-50' },
-    };
-    const config = statusConfig[order.status] || statusConfig['pending'];
-    const StatusIcon = config.icon;
+// ✅ Order Details Modal with Moving Tracking System (Changes every 2 seconds for demo)
+const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTotal }) => {
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+    const [currentProgress, setCurrentProgress] = useState(20);
 
-    const getStatusDisplay = (status) => {
-        const names = {
-            pending: 'Pending',
-            confirmed: 'Confirmed',
-            shipped: 'Shipped',
-            delivered: 'Delivered',
-            cancelled: 'Cancelled',
-        };
-        return names[status] || status;
-    };
+    // Status steps for animated timeline
+    const statusSteps = [
+        { key: 'pending', label: 'Order Placed', icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50', progress: 20 },
+        {
+            key: 'confirmed',
+            label: 'Order Confirmed',
+            icon: CheckCircle,
+            color: 'text-blue-600',
+            bg: 'bg-blue-50',
+            progress: 40,
+        },
+        {
+            key: 'processing',
+            label: 'Processing',
+            icon: Package,
+            color: 'text-purple-600',
+            bg: 'bg-purple-50',
+            progress: 60,
+        },
+        { key: 'shipped', label: 'Order Shipped', icon: Truck, color: 'text-indigo-600', bg: 'bg-indigo-50', progress: 80 },
+        {
+            key: 'out_for_delivery',
+            label: 'Out for Delivery',
+            icon: Truck,
+            color: 'text-teal-600',
+            bg: 'bg-teal-50',
+            progress: 90,
+        },
+        {
+            key: 'delivered',
+            label: 'Delivered',
+            icon: CheckCircle,
+            color: 'text-green-600',
+            bg: 'bg-green-50',
+            progress: 100,
+        },
+    ];
 
-    const statusOrder = ['pending', 'confirmed', 'shipped', 'delivered'];
-    const currentIndex = statusOrder.indexOf(order.status);
+    // Animate through statuses every 2 seconds
+    useEffect(() => {
+        // If order is already delivered, don't animate
+        if (order.status === 'delivered') {
+            setCurrentStepIndex(5);
+            setCurrentProgress(100);
+            return;
+        }
+
+        // If order is cancelled, show cancelled status
+        if (order.status === 'cancelled') {
+            setCurrentStepIndex(0);
+            setCurrentProgress(0);
+            return;
+        }
+
+        let step = 0;
+        const interval = setInterval(() => {
+            if (step < statusSteps.length - 1) {
+                step++;
+                setCurrentStepIndex(step);
+                setCurrentProgress(statusSteps[step].progress);
+            } else {
+                clearInterval(interval);
+            }
+        }, 10000); // Changes every 2 seconds
+
+        return () => clearInterval(interval);
+    }, [order.status]);
+
+    const currentStatus = statusSteps[currentStepIndex];
+    const StatusIcon = currentStatus?.icon || Clock;
+    const currentConfig = currentStatus || statusSteps[0];
 
     return (
         <div
@@ -1145,49 +1127,152 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
                         ✕
                     </button>
                 </div>
+
                 <div className="p-5 space-y-6">
-                    <div className={`${config.bg} rounded-xl p-4 flex items-center gap-3`}>
-                        <StatusIcon size={24} className={config.color} />
-                        <div>
-                            <p className="font-semibold">Order Status: {getStatusDisplay(order.status)}</p>
-                            <p className="text-sm text-gray-500">
-                                Order placed on {new Date(order.created_at).toLocaleDateString()}
-                            </p>
+                    {/* Animated Status Banner */}
+                    <div className={`${currentConfig.bg} rounded-xl p-4 transition-all duration-500`}>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                                <div className="animate-bounce-in">
+                                    <StatusIcon size={24} className={currentConfig.color} />
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-500">Current Status</p>
+                                    <p className={`font-semibold ${currentConfig.color} transition-all duration-300`}>
+                                        {currentConfig.label}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-sm text-gray-500">Delivery Progress</p>
+                                <p className="font-bold text-black animate-pulse">{currentProgress}%</p>
+                            </div>
                         </div>
+
+                        {/* Animated Progress Bar */}
+                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-black rounded-full transition-all duration-700 ease-out"
+                                style={{ width: `${currentProgress}%` }}
+                            />
+                        </div>
+
+                        {/* Estimated Delivery */}
+                        {currentProgress < 100 && (
+                            <div className="mt-3 flex items-center gap-2 text-xs text-gray-500 animate-pulse">
+                                <Clock size={12} />
+                                <span>
+                                    Estimated delivery:{' '}
+                                    {new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
+                                        day: 'numeric',
+                                        month: 'long',
+                                        year: 'numeric',
+                                    })}
+                                </span>
+                            </div>
+                        )}
                     </div>
+
+                    {/* Live Tracking Status Bar - Animated */}
+                    <div className="bg-black text-white rounded-xl p-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-ping" />
+                            <span className="text-sm">Live Tracking</span>
+                        </div>
+                        <span className="text-xs text-gray-300 animate-pulse">{currentConfig.label}</span>
+                    </div>
+
+                    {/* Animated Order Timeline */}
                     <div>
-                        <h3 className="font-semibold mb-3">Order Timeline</h3>
-                        <div className="space-y-3">
-                            {statusOrder.map((status, idx) => {
-                                const isCompleted = idx <= currentIndex;
-                                const statusNames = {
-                                    pending: 'Order Placed',
-                                    confirmed: 'Order Confirmed',
-                                    shipped: 'Order Shipped',
-                                    delivered: 'Order Delivered',
-                                };
-                                return (
-                                    <div key={status} className="flex items-center gap-3">
-                                        <div
-                                            className={`w-6 h-6 rounded-full flex items-center justify-center ${isCompleted ? 'bg-green-500' : 'bg-gray-300'}`}>
-                                            {isCompleted && <CheckCircle size={14} className="text-white" />}
+                        <h3 className="font-semibold mb-4">Order Timeline</h3>
+                        <div className="relative">
+                            <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-gray-200" />
+                            <div className="space-y-6 relative">
+                                {statusSteps.map((step, idx) => {
+                                    const isCompleted = idx <= currentStepIndex;
+                                    const isCurrent = idx === currentStepIndex;
+                                    const StepIcon = step.icon;
+
+                                    return (
+                                        <div key={step.key} className="flex items-start gap-4 relative">
+                                            <div
+                                                className={`z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500 ${
+                                                    isCompleted
+                                                        ? 'bg-green-500 text-white scale-110'
+                                                        : isCurrent
+                                                          ? 'bg-black text-white ring-4 ring-black/20 scale-125'
+                                                          : 'bg-gray-200 text-gray-400'
+                                                }`}>
+                                                {isCompleted ? (
+                                                    <CheckCircle size={16} className="animate-scale-in" />
+                                                ) : (
+                                                    <StepIcon size={16} />
+                                                )}
+                                            </div>
+                                            <div className="flex-1 pb-4">
+                                                <p
+                                                    className={`font-medium transition-all duration-300 ${isCompleted ? 'text-gray-800' : 'text-gray-400'}`}>
+                                                    {step.label}
+                                                </p>
+                                                {isCurrent && (
+                                                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1 animate-fade-in">
+                                                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                                                        Current Status
+                                                    </p>
+                                                )}
+                                                {step.key === 'pending' && (
+                                                    <p className="text-xs text-gray-400 mt-1">
+                                                        Order placed on {new Date(order.created_at).toLocaleDateString()}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            {isCurrent && (
+                                                <div className="absolute -left-1 top-1/2 w-2 h-2 bg-green-500 rounded-full animate-ping" />
+                                            )}
                                         </div>
-                                        <div>
-                                            <p className={`font-medium ${isCompleted ? 'text-gray-800' : 'text-gray-400'}`}>
-                                                {statusNames[status]}
-                                            </p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
+
+                    {/* Delivery Progress Message */}
+                    {currentProgress < 100 && (
+                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 animate-slide-up">
+                            <div className="flex items-center gap-3">
+                                <Truck size={20} className="text-blue-600 animate-bounce" />
+                                <div>
+                                    <p className="text-sm font-medium text-blue-800">Your order is on the way!</p>
+                                    <p className="text-xs text-blue-600 mt-1">
+                                        {currentConfig.label} - {currentProgress}% complete
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Delivery Completed Message */}
+                    {currentProgress === 100 && (
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-100 animate-slide-up">
+                            <div className="flex items-center gap-3">
+                                <CheckCircle size={20} className="text-green-600" />
+                                <div>
+                                    <p className="text-sm font-medium text-green-800">Order Delivered Successfully!</p>
+                                    <p className="text-xs text-green-600 mt-1">Thank you for shopping with us</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Shipping Address */}
                     <div className="border-t pt-4">
                         <h3 className="font-semibold mb-2 flex items-center gap-2">
                             <MapPin size={14} /> Shipping Address
                         </h3>
                         <p className="text-sm text-gray-600">{order.shipping_address || 'Address not provided'}</p>
                     </div>
+
+                    {/* Payment Info */}
                     <div className="border-t pt-4">
                         <h3 className="font-semibold mb-2 flex items-center gap-2">
                             <CreditCard size={14} /> Payment Information
@@ -1197,6 +1282,8 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
                         </p>
                         <p className="text-sm text-gray-600">Status: {order.is_paid ? 'Paid' : 'Pending'}</p>
                     </div>
+
+                    {/* Order Items */}
                     <div className="border-t pt-4">
                         <h3 className="font-semibold mb-3">Order Items</h3>
                         <div className="space-y-3">
@@ -1222,6 +1309,8 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
                                 ))}
                         </div>
                     </div>
+
+                    {/* Order Summary */}
                     <div className="border-t pt-4">
                         <div className="space-y-2 text-sm">
                             <div className="flex justify-between">

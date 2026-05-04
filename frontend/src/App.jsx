@@ -7,6 +7,7 @@ import Navbar from './components/layout/Navbar';
 
 import Home from './pages/Home';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Products from './pages/Products';
 import ProductPage from './pages/ProductPage';
 import ShopByCategory from './pages/ShopByCategory';
@@ -15,17 +16,18 @@ import Wishlist from './pages/Wishlist';
 import Checkout from './pages/Checkout';
 import NewArrivals from './pages/NewArrivals';
 import MyOrders from './pages/MyOrders';
-import Register from './pages/Register';
 import Profile from './pages/Profile';
-
-// ✅ wrapper needed for useLocation
-function AppWrapper() {
+function AppLayout() {
     const location = useLocation();
+
+    const hideNavbarRoutes = ['/login', '/register'];
+
+    const hideNavbar = hideNavbarRoutes.includes(location.pathname);
 
     return (
         <>
-            {/* ✅ Navbar only if NOT login page */}
-            {location.pathname !== '/login' && <Navbar />}
+            {/* ✅ Navbar only when NOT login/register */}
+            {!hideNavbar && <Navbar />}
 
             <Routes>
                 <Route path="/" element={<Home />} />
@@ -53,7 +55,7 @@ function App() {
         <CartProvider>
             <WishlistProvider>
                 <BrowserRouter>
-                    <AppWrapper />
+                    <AppLayout />
                 </BrowserRouter>
             </WishlistProvider>
         </CartProvider>

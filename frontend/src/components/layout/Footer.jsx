@@ -1,4 +1,30 @@
+import { useNavigate } from 'react-router-dom';
+
 function Footer() {
+    const navigate = useNavigate();
+
+    const handleNavigation = (category) => {
+        if (category === 'mens') {
+            navigate('/shop/men');
+        } else if (category === 'womens') {
+            navigate('/shop/women');
+        } else if (category === 'kids') {
+            navigate('/shop/kids');
+        } else if (category === 'new') {
+            navigate('/new-arrivals');
+        } else if (category === 'sale') {
+            navigate('/products?sale=true');
+        } else if (category === 'bestsellers') {
+            navigate('/products?sort=bestselling');
+        } else if (category === 'collaborations') {
+            navigate('/products?category=collaborations');
+        } else if (category === 'gift-cards') {
+            navigate('/gift-cards');
+        }
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     return (
         <footer style={{ fontFamily: "'DM Sans', sans-serif", background: '#fff' }}>
             <style>{`
@@ -304,14 +330,7 @@ function Footer() {
                 <div className="trust-strip">
                     <div className="trust-inner">
                         {[
-                            {
-                                icon: (
-                                    <>
-                                        <polyline points="5 12 10 17 20 7" />
-                                    </>
-                                ),
-                                label: 'Free Shipping Over $75',
-                            },
+                            { icon: <polyline points="5 12 10 17 20 7" />, label: 'Free Shipping Over $75' },
                             {
                                 icon: (
                                     <>
@@ -341,9 +360,7 @@ function Footer() {
                             },
                             {
                                 icon: (
-                                    <>
-                                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                                    </>
+                                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                                 ),
                                 label: 'Authenticity Guaranteed',
                             },
@@ -393,7 +410,6 @@ function Footer() {
 
                             {/* SOCIALS */}
                             <div className="social-row">
-                                {/* Instagram */}
                                 <div className="social-btn" title="Instagram">
                                     <svg viewBox="0 0 24 24">
                                         <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
@@ -410,19 +426,16 @@ function Footer() {
                                         />
                                     </svg>
                                 </div>
-                                {/* Facebook */}
                                 <div className="social-btn" title="Facebook">
                                     <svg viewBox="0 0 24 24">
                                         <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
                                     </svg>
                                 </div>
-                                {/* Twitter/X */}
                                 <div className="social-btn" title="X / Twitter">
                                     <svg viewBox="0 0 24 24">
                                         <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                                     </svg>
                                 </div>
-                                {/* YouTube */}
                                 <div className="social-btn" title="YouTube">
                                     <svg viewBox="0 0 24 24">
                                         <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-1.96C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.4 19.54C5.12 20 12 20 12 20s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z" />
@@ -432,7 +445,6 @@ function Footer() {
                                         />
                                     </svg>
                                 </div>
-                                {/* TikTok */}
                                 <div className="social-btn" title="TikTok">
                                     <svg viewBox="0 0 24 24">
                                         <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.34 6.34 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.79 1.52V6.75a4.85 4.85 0 0 1-1.02-.06z" />
@@ -469,29 +481,37 @@ function Footer() {
                             </div>
                         </div>
 
-                        {/* SHOP */}
+                        {/* SHOP - WITH WORKING LINKS */}
                         <div>
                             <div className="col-title">Shop</div>
                             <ul className="link-list">
                                 <li>
-                                    <span className="link">Men's Collection</span>
+                                    <span className="link" onClick={() => handleNavigation('mens')}>
+                                        Men's Collection
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Women's Collection</span>
+                                    <span className="link" onClick={() => handleNavigation('womens')}>
+                                        Women's Collection
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Kids' Collection</span>
+                                    <span className="link" onClick={() => handleNavigation('kids')}>
+                                        Kids' Collection
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">
+                                    <span className="link" onClick={() => handleNavigation('new')}>
                                         New Arrivals <span className="badge">New</span>
                                     </span>
                                 </li>
                                 <li>
-                                    <span className="link">Best Sellers</span>
+                                    <span className="link" onClick={() => handleNavigation('bestsellers')}>
+                                        Best Sellers
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">
+                                    <span className="link" onClick={() => handleNavigation('sale')}>
                                         Sale{' '}
                                         <span className="badge" style={{ background: '#dc2626' }}>
                                             Sale
@@ -499,10 +519,14 @@ function Footer() {
                                     </span>
                                 </li>
                                 <li>
-                                    <span className="link">Collaborations</span>
+                                    <span className="link" onClick={() => handleNavigation('collaborations')}>
+                                        Collaborations
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Gift Cards</span>
+                                    <span className="link" onClick={() => handleNavigation('gift-cards')}>
+                                        Gift Cards
+                                    </span>
                                 </li>
                             </ul>
                         </div>
@@ -512,25 +536,39 @@ function Footer() {
                             <div className="col-title">Company</div>
                             <ul className="link-list">
                                 <li>
-                                    <span className="link">About Rapido</span>
+                                    <span className="link" onClick={() => (window.location.href = '/about')}>
+                                        About Rapido
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Our Story</span>
+                                    <span className="link" onClick={() => (window.location.href = '/story')}>
+                                        Our Story
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Sustainability</span>
+                                    <span className="link" onClick={() => (window.location.href = '/sustainability')}>
+                                        Sustainability
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Careers</span>
+                                    <span className="link" onClick={() => (window.location.href = '/careers')}>
+                                        Careers
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Press</span>
+                                    <span className="link" onClick={() => (window.location.href = '/press')}>
+                                        Press
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Affiliates</span>
+                                    <span className="link" onClick={() => (window.location.href = '/affiliates')}>
+                                        Affiliates
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Blog</span>
+                                    <span className="link" onClick={() => (window.location.href = '/blog')}>
+                                        Blog
+                                    </span>
                                 </li>
                             </ul>
                         </div>
@@ -540,25 +578,39 @@ function Footer() {
                             <div className="col-title">Support</div>
                             <ul className="link-list">
                                 <li>
-                                    <span className="link">Help Center</span>
+                                    <span className="link" onClick={() => (window.location.href = '/help')}>
+                                        Help Center
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Track My Order</span>
+                                    <span className="link" onClick={() => (window.location.href = '/track-order')}>
+                                        Track My Order
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Shipping Info</span>
+                                    <span className="link" onClick={() => (window.location.href = '/shipping')}>
+                                        Shipping Info
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Returns & Exchanges</span>
+                                    <span className="link" onClick={() => (window.location.href = '/returns')}>
+                                        Returns & Exchanges
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Size Guide</span>
+                                    <span className="link" onClick={() => (window.location.href = '/size-guide')}>
+                                        Size Guide
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Care Instructions</span>
+                                    <span className="link" onClick={() => (window.location.href = '/care')}>
+                                        Care Instructions
+                                    </span>
                                 </li>
                                 <li>
-                                    <span className="link">Contact Us</span>
+                                    <span className="link" onClick={() => (window.location.href = '/contact')}>
+                                        Contact Us
+                                    </span>
                                 </li>
                             </ul>
                         </div>
@@ -594,7 +646,7 @@ function Footer() {
                                         <div style={{ color: '#111', fontWeight: 600, fontSize: 13, marginBottom: 2 }}>
                                             Email
                                         </div>
-                                        hello@rapido.com
+                                        ranafathimapunnolil@gmail.com
                                     </div>
                                 </div>
                                 <div className="contact-item">

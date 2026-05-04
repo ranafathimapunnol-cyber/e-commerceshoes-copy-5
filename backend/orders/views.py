@@ -1,4 +1,6 @@
 # orders/views.py
+from django.utils import timezone
+from datetime import timedelta
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -171,3 +173,34 @@ def order_detail(request, order_id):
     except Exception as e:
         print("Error fetching order detail:", str(e))
         return Response({'error': str(e)}, status=500)
+
+
+# Add this function to update order status over time
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_order_status(request, order_id):
+    try:
+        order = Order.objects.get(id=order_id, user=request.user)
+    except Order.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=404)
+
+    status_flow = {
+        'pending': 'confirmed',
+        'confirmed': 'processing',
+        'processing': 'shipped',
+        'shipped': 'out_for_delivery',
+        'out_for_delivery': 'delivered'
+    }
+
+    if order.status in status_flow:
+        order.status = status_flow[order.status]
+        order.save()
+        return Response({'status': order.status, 'message': 'Status updated'})
+
+    return Response({'error': 'Invalid status'}, status=400)
+
+
+# Add this URL to orders/urls.py
+# path('<int:order_id>/update-status/', views.update_order_status, name='update_order_status'),

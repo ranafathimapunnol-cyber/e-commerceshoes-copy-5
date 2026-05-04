@@ -5,7 +5,7 @@ import productReducer from '../features/products/productSlice'
 import authReducer from '../features/auth/authSlice'
 
 
-export const store = configureStore({
+export const store = configureStore({ //state management using redux toolkit 
 
   reducer: {
 

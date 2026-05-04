@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, ShoppingBag, Heart, User, ChevronDown } from 'lucide-react';
+import { ShoppingBag, Heart, User, ChevronDown } from 'lucide-react';
 
 import { CartContext } from '../../context/CartContext';
 import { WishlistContext } from '../../context/WishlistContext';
@@ -9,12 +9,9 @@ function PremiumBlackWhiteNavbar() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const [activeMenu, setActiveMenu] = useState(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [navTextColor, setNavTextColor] = useState('white');
     const [itemCount, setItemCount] = useState(0);
-
-    const timeoutRef = useRef(null);
 
     const cartContext = useContext(CartContext);
     const wishlistContext = useContext(WishlistContext);
@@ -58,35 +55,32 @@ function PremiumBlackWhiteNavbar() {
 
             if (scrollY < 735) setNavTextColor('white');
             else if (scrollY < 2110) setNavTextColor('black');
-            else if (scrollY < 3720) setNavTextColor('white');
+            else if (scrollY < 3700) setNavTextColor('white');
             else setNavTextColor('black');
         };
 
         window.addEventListener('scroll', updateColor);
-
         updateColor();
 
         return () => window.removeEventListener('scroll', updateColor);
     }, [location.pathname]);
 
-    // ================= LOGOUT =================
+    // ================= ACTIONS =================
     const handleLogout = () => {
         localStorage.removeItem('access');
         localStorage.removeItem('refresh');
 
         setIsLoggedIn(false);
-
         navigate('/login');
     };
 
     const openCartPage = () => navigate('/cart');
 
-    const megaMenuData = {
-        MEN: ['Running', 'Football', 'Basketball', 'Training', 'Sneakers', 'Gym'],
-        WOMEN: ['Lifestyle', 'Running', 'Gym', 'Yoga', 'Casual', 'Sneakers'],
-        KIDS: ['School Shoes', 'Sports', 'Play Shoes', 'Sneakers', 'Casual'],
-    };
+    const textColorClass = navTextColor === 'white' ? 'text-white' : 'text-black';
 
+    const hoverColorClass = navTextColor === 'white' ? 'hover:text-gray-300' : 'hover:text-gray-700';
+
+    // ================= NAV ITEMS (FIXED - NO TRANSLATION) =================
     const navItems = [
         { name: 'NEW ARRIVALS', route: '/new-arrivals' },
         { name: 'MEN', route: '/shop/men' },
@@ -94,14 +88,6 @@ function PremiumBlackWhiteNavbar() {
         { name: 'KIDS', route: '/shop/kids' },
         { name: 'SALE', route: '/products?sale=true' },
     ];
-
-    const handleNavClick = (item) => {
-        navigate(item.route);
-    };
-
-    const textColorClass = navTextColor === 'white' ? 'text-white' : 'text-black';
-
-    const hoverColorClass = navTextColor === 'white' ? 'hover:text-gray-300' : 'hover:text-gray-700';
 
     return (
         <nav className="fixed top-0 left-0 w-full z-50 bg-transparent py-4">
@@ -119,24 +105,20 @@ function PremiumBlackWhiteNavbar() {
                     {navItems.map((item, i) => (
                         <button
                             key={i}
-                            onClick={() => handleNavClick(item)}
+                            onClick={() => navigate(item.route)}
                             className={`flex items-center gap-1 ${hoverColorClass}`}>
                             {item.name}
-
-                            {megaMenuData[item.name] && <ChevronDown size={14} />}
+                            <ChevronDown size={14} />
                         </button>
                     ))}
                 </div>
 
-                {/* RIGHT ICONS */}
+                {/* RIGHT SIDE */}
                 <div className={`flex items-center gap-4 ${textColorClass}`}>
-                    {/* SEARCH */}
-
                     {/* WISHLIST */}
                     {isLoggedIn && (
                         <Link to="/wishlist" className="relative">
                             <Heart size={18} />
-
                             {wishlist.length > 0 && (
                                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
                                     {wishlist.length}
@@ -149,7 +131,6 @@ function PremiumBlackWhiteNavbar() {
                     {isLoggedIn && (
                         <button onClick={openCartPage} className="relative">
                             <ShoppingBag size={18} />
-
                             {itemCount > 0 && (
                                 <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
                                     {itemCount}
@@ -158,19 +139,17 @@ function PremiumBlackWhiteNavbar() {
                         </button>
                     )}
 
-                    {/* LOGIN / PROFILE */}
+                    {/* USER */}
                     {!isLoggedIn ? (
                         <Link to="/login">
                             <User size={18} />
                         </Link>
                     ) : (
                         <>
-                            {/* PROFILE */}
                             <Link to="/profile">
                                 <User size={18} />
                             </Link>
 
-                            {/* LOGOUT */}
                             <button onClick={handleLogout} className="text-xs font-bold hover:text-red-500">
                                 Logout
                             </button>
