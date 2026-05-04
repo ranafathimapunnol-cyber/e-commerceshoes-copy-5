@@ -1,35 +1,27 @@
+# products/urls.py
 from django.urls import path
-
 from . import views
 
-from .views import (
-    getProducts,
-    getProduct,
-    getCategories,
-    getSubCategories,
-    get_new_arrivals
-)
-
 urlpatterns = [
+    # Products
+    path('', views.getProducts, name='products'),
+    path('<int:pk>/', views.getProduct, name='product_detail'),
 
-    path('', getProducts),
+    # Wishlist
+    path('wishlist/', views.getWishlist, name='get_wishlist'),
+    path('wishlist/add/', views.addWishlist, name='add_wishlist'),
+    path('wishlist/remove/<int:pk>/',
+         views.removeWishlist, name='remove_wishlist'),
+    path('wishlist/toggle/', views.toggleWishlist, name='toggle_wishlist'),
+    path('wishlist/check/<int:product_id>/',
+         views.checkWishlist, name='check_wishlist'),
 
-    path('<int:pk>/', getProduct),
+    # Categories
+    path('categories/', views.getCategories, name='categories'),
+    path('categories/<int:category_id>/sub/',
+         views.getSubCategories, name='sub_categories'),
 
-    # WISHLIST
-    path('wishlist/', views.getWishlist),
-
-    path('wishlist/add/', views.addWishlist),
-
-    path('wishlist/remove/<int:pk>/', views.removeWishlist),
-
-    # CATEGORIES
-    path('categories/', getCategories),
-
-    path('categories/<int:category_id>/sub/', getSubCategories),
-
-
-
-    path('new-arrivals/', get_new_arrivals)
-
+    # New Arrivals & Featured
+    path('new-arrivals/', views.get_new_arrivals, name='new_arrivals'),
+    path('featured/', views.getFeaturedProducts, name='featured_products'),
 ]

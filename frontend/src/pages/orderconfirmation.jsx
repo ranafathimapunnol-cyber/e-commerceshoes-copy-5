@@ -158,7 +158,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                     margin-top:40px;
                 }
 
-                /* HERO */
                 .oc-hero {
                     text-align:center; margin-bottom:28px;
                     animation:oc-slideDown 0.6s ease-out 0.1s both;
@@ -205,7 +204,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                     animation:oc-popIn 0.5s ease-out 0.85s both;
                 }
 
-                /* SHIMMER */
                 .oc-shimmer {
                     height:2px; border-radius:2px;
                     background:linear-gradient(90deg,#000 0%,#fff 50%,#000 100%);
@@ -214,7 +212,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                     margin:4px 0 14px;
                 }
 
-                /* POP CARDS ROW */
                 .oc-pop-row {
                     display:grid; grid-template-columns:1fr 1fr 1fr;
                     gap:10px; margin-bottom:16px;
@@ -238,7 +235,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                 }
                 .oc-pop-val { font-size:13px; font-weight:500; color:#000; line-height:1.3; }
 
-                /* DETAIL CARDS */
                 .oc-detail {
                     background:#fff; border:1px solid #e5e5e5;
                     border-radius:18px; overflow:hidden; margin-bottom:16px;
@@ -275,7 +271,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                 .oc-total-label { font-size:15px; font-weight:500; color:#000; }
                 .oc-total-val   { font-size:22px; font-weight:500; color:#000; }
 
-                /* ACTIONS */
                 .oc-actions {
                     display:grid; grid-template-columns:1fr 1fr;
                     gap:10px; margin-bottom:16px;
@@ -294,7 +289,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                 }
                 .oc-btn-secondary:hover { border-color:#000; transform:scale(0.98); }
 
-                /* TRUST */
                 .oc-trust {
                     display:flex; justify-content:center; gap:20px; padding:16px;
                     animation:oc-slideUp 0.5s ease-out 1.2s both;
@@ -310,7 +304,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                 <div className="oc-confetti-layer" id="oc-confetti" />
 
                 <div className="oc-card">
-                    {/* HERO */}
                     <div className="oc-hero">
                         <div className="oc-ring-wrap">
                             <div className="oc-ring1" />
@@ -328,7 +321,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
 
                     <div className="oc-shimmer" />
 
-                    {/* POP CARDS */}
                     <div className="oc-pop-row">
                         <div className="oc-pop l">
                             <div className="oc-pop-icon">
@@ -386,7 +378,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                         </div>
                     </div>
 
-                    {/* ADDRESS CARD */}
                     <div className="oc-detail dl">
                         <div className="oc-dh">
                             <div className="oc-dh-icon">
@@ -414,7 +405,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                         </div>
                     </div>
 
-                    {/* ORDER SUMMARY CARD */}
                     <div className="oc-detail dr">
                         <div className="oc-dh">
                             <div className="oc-dh-icon">
@@ -460,7 +450,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                         </div>
                     </div>
 
-                    {/* BUTTONS */}
                     <div className="oc-actions">
                         <button className="oc-btn-primary" onClick={closeAndGoOrders}>
                             View My Orders
@@ -470,7 +459,6 @@ function OrderConfirmation({ orderDetails, items, onClose, onGoToOrders }) {
                         </button>
                     </div>
 
-                    {/* TRUST */}
                     <div className="oc-trust">
                         <div className="oc-trust-item">
                             <ShieldCheck size={12} /> Secure Checkout

@@ -1,3 +1,4 @@
+# products/views.py
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -5,6 +6,7 @@ from rest_framework import status
 
 from datetime import timedelta
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 
 from .models import (
     Product,
@@ -20,11 +22,10 @@ from .serializers import (
     WishlistSerializer
 )
 
+
 # =========================
 # GET ALL CATEGORIES
 # =========================
-
-
 @api_view(['GET'])
 def getCategories(request):
     categories = Category.objects.all()
@@ -50,6 +51,8 @@ def getProducts(request):
     category = request.GET.get('category')
     sub_category = request.GET.get('sub_category')
     search = request.GET.get('search')
+    gender = request.GET.get('gender')
+    is_featured = request.GET.get('is_featured')
 
     products = Product.objects.all()
 
@@ -69,6 +72,12 @@ def getProducts(request):
 
     if search:
         products = products.filter(name__icontains=search)
+    
+    if gender:
+        products = products.filter(gender__iexact=gender)
+    
+    if is_featured:
+        products = products.filter(is_featured=True)
 
     serializer = ProductSerializer(products, many=True)
     return Response(serializer.data)
@@ -92,23 +101,30 @@ def getProduct(request, pk):
 
 
 # =========================
-# WISHLIST - GET
+# WISHLIST - GET USER'S WISHLIST
 # =========================
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def getWishlist(request):
-    wishlist = Wishlist.objects.filter(user=request.user)
-    serializer = WishlistSerializer(wishlist, many=True)
+    wishlist_items = Wishlist.objects.filter(user=request.user).select_related('product')
+    products = [item.product for item in wishlist_items]
+    serializer = ProductSerializer(products, many=True)
     return Response(serializer.data)
 
 
 # =========================
-# WISHLIST - ADD
+# WISHLIST - ADD PRODUCT
 # =========================
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def addWishlist(request):
     product_id = request.data.get('product')
+    
+    if not product_id:
+        return Response(
+            {"error": "Product ID is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     try:
         product = Product.objects.get(id=product_id)
@@ -118,36 +134,113 @@ def addWishlist(request):
             status=status.HTTP_404_NOT_FOUND
         )
 
-    item, created = Wishlist.objects.get_or_create(
+    # Check if already in wishlist
+    wishlist_item, created = Wishlist.objects.get_or_create(
         user=request.user,
         product=product
     )
 
-    return Response({"message": "Added to wishlist"})
+    if created:
+        return Response(
+            {"message": "Added to wishlist", "is_wishlisted": True},
+            status=status.HTTP_201_CREATED
+        )
+    else:
+        return Response(
+            {"message": "Product already in wishlist", "is_wishlisted": True},
+            status=status.HTTP_200_OK
+        )
 
 
 # =========================
-# WISHLIST - REMOVE
+# WISHLIST - REMOVE PRODUCT
 # =========================
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def removeWishlist(request, pk):
     try:
-        item = Wishlist.objects.get(id=pk)
-        item.delete()
-        return Response({"message": "Removed"})
+        # Delete by product_id
+        wishlist_item = Wishlist.objects.get(user=request.user, product_id=pk)
+        wishlist_item.delete()
+        return Response(
+            {"message": "Removed from wishlist", "is_wishlisted": False},
+            status=status.HTTP_200_OK
+        )
     except Wishlist.DoesNotExist:
         return Response(
-            {"error": "Item not found"},
+            {"error": "Item not found in wishlist"},
             status=status.HTTP_404_NOT_FOUND
         )
 
 
 # =========================
-# NEW ARRIVALS (FIXED 🔥)
+# WISHLIST - TOGGLE (Add/Remove)
+# =========================
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def toggleWishlist(request):
+    product_id = request.data.get('product_id')
+    
+    if not product_id:
+        return Response(
+            {"error": "Product ID is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    product = get_object_or_404(Product, id=product_id)
+    
+    wishlist_item = Wishlist.objects.filter(user=request.user, product=product)
+    
+    if wishlist_item.exists():
+        wishlist_item.delete()
+        return Response({
+            "message": "Removed from wishlist",
+            "is_wishlisted": False
+        }, status=status.HTTP_200_OK)
+    else:
+        Wishlist.objects.create(user=request.user, product=product)
+        return Response({
+            "message": "Added to wishlist",
+            "is_wishlisted": True
+        }, status=status.HTTP_201_CREATED)
+
+
+# =========================
+# WISHLIST - CHECK IF PRODUCT IS IN WISHLIST
+# =========================
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def checkWishlist(request, product_id):
+    is_wishlisted = Wishlist.objects.filter(
+        user=request.user, 
+        product_id=product_id
+    ).exists()
+    
+    return Response({"is_wishlisted": is_wishlisted})
+
+
+# =========================
+# NEW ARRIVALS
 # =========================
 @api_view(['GET'])
 def get_new_arrivals(request):
-    products = Product.objects.all().order_by('-created_at')[:10]
+    # Get products from last 30 days or latest 10
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    products = Product.objects.filter(created_at__gte=thirty_days_ago).order_by('-created_at')[:10]
+    
+    # If not enough products, just get latest
+    if products.count() < 4:
+        products = Product.objects.all().order_by('-created_at')[:10]
+    
+    serializer = ProductSerializer(products, many=True)
+    return Response(serializer.data)
+
+
+# =========================
+# FEATURED PRODUCTS
+# =========================
+@api_view(['GET'])
+def getFeaturedProducts(request):
+    products = Product.objects.filter(is_featured=True)[:8]
     serializer = ProductSerializer(products, many=True)
     return Response(serializer.data)

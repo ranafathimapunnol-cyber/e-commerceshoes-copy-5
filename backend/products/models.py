@@ -1,5 +1,6 @@
+# products/models.py
 from django.db import models
-from users.models import User
+from django.conf import settings  # ✅ Use settings.AUTH_USER_MODEL
 
 
 # =========================
@@ -29,7 +30,7 @@ class SubCategory(models.Model):
 
 
 # =========================
-# PRODUCT (ONLY ONE MODEL 🔥)
+# PRODUCT
 # =========================
 class Product(models.Model):
     name = models.CharField(max_length=255)
@@ -65,7 +66,7 @@ class Product(models.Model):
 
     is_featured = models.BooleanField(default=False)
 
-    # 🔥 UNISEX FEATURE ADDED PROPERLY
+    # UNISEX FEATURE
     gender = models.CharField(max_length=20, default="UNISEX")
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -78,14 +79,21 @@ class Product(models.Model):
 # WISHLIST
 # =========================
 class Wishlist(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,  # ✅ Use settings.AUTH_USER_MODEL
+        on_delete=models.CASCADE,
+        related_name='wishlist_items'
+    )
     product = models.ForeignKey(
         Product,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        related_name='wishlisted_by'
     )
-
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ['user', 'product']
+        ordering = ['-created_at']
+
     def __str__(self):
-        return f"{self.user} - {self.product}"
+        return f"{self.user.username} - {self.product.name}"

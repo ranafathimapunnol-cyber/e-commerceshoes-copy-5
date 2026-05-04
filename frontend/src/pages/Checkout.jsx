@@ -2,7 +2,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import OrderConfirmation from './OrderConfirmation'; // ✅ IMPORT YOUR COMPONENT
+import OrderConfirmation from './OrderConfirmation';
 import { CreditCard, ShieldCheck, Truck, ArrowRight, Lock, AlertCircle, Wallet, Smartphone, Clock } from 'lucide-react';
 
 import { CartContext } from '../context/CartContext';
@@ -183,30 +183,18 @@ function Checkout() {
     };
 
     // =========================
-    // CLOSE HANDLERS FOR YOUR OrderConfirmation
+    // CLOSE HANDLERS
     // =========================
     const handleClosePopup = () => {
         setOrderPlaced(false);
-        // Don't navigate here - let the component handle navigation
-    };
-
-    const handleGoToOrders = () => {
-        setOrderPlaced(false);
-        navigate('/my-orders');
+        navigate('/products');
     };
 
     // =========================
-    // SHOW ORDER CONFIRMATION (YOUR COMPONENT)
+    // SHOW ORDER CONFIRMATION
     // =========================
     if (orderPlaced && orderDetails) {
-        return (
-            <OrderConfirmation
-                orderDetails={orderDetails}
-                items={items}
-                onClose={handleClosePopup}
-                onGoToOrders={handleGoToOrders}
-            />
-        );
+        return <OrderConfirmation orderDetails={orderDetails} items={items} onClose={handleClosePopup} />;
     }
 
     // =========================

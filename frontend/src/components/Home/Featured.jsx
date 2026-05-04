@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { CartContext } from '../../context/CartContext'; // ✅ Fixed path
+import { WishlistContext } from '../../context/WishlistContext'; // ✅ Fixed path
 
 import { ArrowRight, Sparkles, Eye, ShoppingBag, Star, TrendingUp, Zap, Award } from 'lucide-react';
 
@@ -9,21 +11,18 @@ function Featured() {
     const [isVisible, setIsVisible] = useState(false);
     const [loadedImages, setLoadedImages] = useState({});
     const [products, setProducts] = useState([]);
+    const [addingToCart, setAddingToCart] = useState({});
 
     const sectionRef = useRef(null);
     const navigate = useNavigate();
+    const { addToCart } = useContext(CartContext);
 
     useEffect(() => {
         const fetchProducts = async () => {
             try {
                 const res = await axios.get('http://127.0.0.1:8000/api/products/');
 
-                // Take product at index 0, skip index 1, take index 2 and 3
-                const featuredProducts = [
-                    res.data[14], // First product
-                    res.data[22], // Third product (skipping second)
-                    res.data[23], // Fourth product
-                ];
+                const featuredProducts = [res.data[20], res.data[19], res.data[15]];
 
                 setProducts(featuredProducts);
             } catch (err) {
@@ -53,6 +52,37 @@ function Featured() {
 
     const handleShopNow = (product) => {
         navigate(`/product/${product.id}`);
+    };
+
+    const handleQuickView = (product, e) => {
+        e.stopPropagation();
+        navigate(`/product/${product.id}`);
+    };
+
+    const handleAddToCart = async (product, e) => {
+        e.stopPropagation();
+
+        // ✅ CHECK LOGIN STATUS
+        const token = localStorage.getItem('access');
+        if (!token) {
+            alert('Please login to add items to cart');
+            navigate('/login');
+            return;
+        }
+
+        setAddingToCart((prev) => ({ ...prev, [product.id]: true }));
+
+        try {
+            await addToCart(product.id, 1);
+            alert(`${product.name} added to cart! ✅`);
+        } catch (error) {
+            console.error('Add to cart error:', error);
+            alert('Failed to add to cart. Please try again.');
+        } finally {
+            setTimeout(() => {
+                setAddingToCart((prev) => ({ ...prev, [product.id]: false }));
+            }, 500);
+        }
     };
 
     if (products.length === 0) return null;
@@ -102,26 +132,39 @@ function Featured() {
                                         </div>
                                         <div
                                             className={`absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-3 transition-all duration-300 ${
-                                                hoveredIndex === idx ? 'opacity-100' : 'opacity-0 translate-y-4'
+                                                hoveredIndex === idx
+                                                    ? 'opacity-100 translate-y-0'
+                                                    : 'opacity-0 translate-y-4'
                                             }`}>
-                                            <button className="bg-white text-black p-3 rounded-full">
+                                            {/* Eye Button - Quick View */}
+                                            <button
+                                                onClick={(e) => handleQuickView(product, e)}
+                                                className="bg-white text-black p-3 rounded-full hover:scale-110 transition shadow-lg">
                                                 <Eye size={16} />
                                             </button>
-                                            <button className="bg-white text-black p-3 rounded-full">
-                                                <ShoppingBag size={16} />
+                                            {/* Shopping Bag Button - Add to Cart */}
+                                            <button
+                                                onClick={(e) => handleAddToCart(product, e)}
+                                                disabled={addingToCart[product.id]}
+                                                className="bg-white text-black p-3 rounded-full hover:scale-110 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed">
+                                                {addingToCart[product.id] ? (
+                                                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                                                ) : (
+                                                    <ShoppingBag size={16} />
+                                                )}
                                             </button>
                                         </div>
                                     </div>
                                     <div className="p-6">
                                         <div className="flex items-center gap-2 text-white/60 text-sm">
-                                            <Star size={10} />
+                                            <Star size={10} className="fill-yellow-500 text-yellow-500" />
                                             4.8 (120+)
                                         </div>
                                         <h3 className="text-2xl font-bold mt-2">{product.name}</h3>
-                                        <p className="text-white/50 text-sm mt-2">{product.description}</p>
+                                        <p className="text-white/50 text-sm mt-2 line-clamp-2">{product.description}</p>
                                         <div className="flex items-center justify-between mt-5">
                                             <div>
-                                                <p className="text-xl font-bold">₹{product.price}</p>
+                                                <p className="text-xl font-bold">₹{product.price?.toLocaleString()}</p>
                                             </div>
                                             <button
                                                 onClick={() => handleShopNow(product)}
