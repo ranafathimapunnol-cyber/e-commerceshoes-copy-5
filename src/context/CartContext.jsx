@@ -43,7 +43,7 @@ export const CartProvider = ({ children }) => {
             let newItems;
             if (existingIndex !== -1) {
                 const updated = [...prevCart.items];
-                updated[existingIndex].quantity = Math.min(10, updated[existingIndex].quantity + quantity);
+                updated[existingIndex].quantity = Math.min(99, updated[existingIndex].quantity + quantity);
                 newItems = updated;
             } else {
                 const newItem = {
