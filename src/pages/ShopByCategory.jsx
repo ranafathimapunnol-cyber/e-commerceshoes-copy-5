@@ -120,8 +120,11 @@ function ShopByCategory() {
     };
 
     const handleBuyNow = async (productId) => {
-        await addToCart(productId, 1);
-        navigate('/checkout');
+        await addToCart(productId, 1, true); // true = buyNow flag
+
+        sessionStorage.setItem('buyNowItem', JSON.stringify({ productId }));
+
+        navigate('/checkout?type=buynow');
     };
 
     const handleWishlist = (productId) => {

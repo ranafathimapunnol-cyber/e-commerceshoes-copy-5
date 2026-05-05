@@ -124,8 +124,21 @@ function Products() {
     };
 
     const handleBuyNow = async (productId) => {
+        const product = products.find((p) => p.id === productId);
+
+        const buyNowItem = {
+            product_id: product.id,
+            product_name: product.name,
+            product_price: product.price,
+            product_image: product.image,
+            quantity: 1,
+        };
+
+        localStorage.setItem('buyNowItem', JSON.stringify(buyNowItem));
+
         await addToCart(productId, 1);
-        navigate('/checkout');
+
+        navigate('/checkout?type=buynow');
     };
 
     const handleWishlist = (productId) => {
