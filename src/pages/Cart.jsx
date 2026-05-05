@@ -105,7 +105,7 @@ function Cart() {
                         </div>
                         <h2 className="text-2xl font-bold mb-2">Buy Now in Progress</h2>
                         <p className="text-gray-600 mb-6">
-                            You have a Buy Now order being processed. Your regular cart is empty.
+                            You have a Buy Now order being processed. Your regular cart is now empty.
                         </p>
                         <button
                             onClick={() => navigate('/checkout')}
