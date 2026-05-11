@@ -1,10 +1,11 @@
 import { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ShoppingBag, ChevronLeft, Star, Truck, RotateCcw, Shield, AlertCircle, X, Check } from 'lucide-react';
+import { ShoppingBag, ChevronLeft, Star, Truck, RotateCcw, Shield, AlertCircle, X, Check, Heart } from 'lucide-react';
 
 import { WishlistContext } from '../context/WishlistContext';
 import { CartContext } from '../context/CartContext';
+import { showSuccess, showError, showWarning } from '../utils/toast';
 
 const SIZE_OPTIONS = ['UK 6', 'UK 7', 'UK 8', 'UK 9', 'UK 10', 'UK 11'];
 
@@ -133,6 +134,13 @@ function ProductDetail() {
     const [addingToCart, setAddingToCart] = useState(false);
 
     const { addToCart } = useContext(CartContext);
+    const { toggleWishlist, isInWishlist } = useContext(WishlistContext);
+
+    // ✅ Check if user is logged in
+    const isLoggedIn = () => {
+        const token = localStorage.getItem('access');
+        return !!token;
+    };
 
     useEffect(() => {
         const fetchProduct = async () => {
@@ -175,11 +183,17 @@ function ProductDetail() {
     const getImage = (img) => {
         if (!img) return '/placeholder.jpg';
         if (img.startsWith('http')) return img;
-        return `http://127.0.0.1:8000${img}`;
+        if (img.startsWith('/')) return `http://127.0.0.1:8000${img}`;
+        return `http://127.0.0.1:8000/media/${img}`;
     };
 
     // Handle Add to Cart
     const handleAddToCart = async () => {
+        if (!isLoggedIn()) {
+            showWarning('Please login to add items to cart');
+            return;
+        }
+
         if (!selectedSize) {
             setSizeError(true);
             setTimeout(() => setSizeError(false), 2000);
@@ -189,12 +203,22 @@ function ProductDetail() {
         setAddingToCart(true);
 
         try {
-            await addToCart(product.id, 1);
+            await addToCart(product.id, 1, {
+                product_name: product.name,
+                product_price: product.price,
+                product_image: product.image || (product.images && product.images[0]),
+                brand: product.brand || 'PREMIUM',
+                size: selectedSize,
+                color: selectedColor.name,
+            });
+
+            showSuccess(`${product.name} added to cart!`);
             setToastMessage(`${product.name} added to cart!`);
             setShowToast(true);
             setTimeout(() => setShowToast(false), 3000);
         } catch (error) {
             console.error('Error adding to cart:', error);
+            showError('Failed to add to cart');
             setToastMessage('Failed to add to cart');
             setShowToast(true);
             setTimeout(() => setShowToast(false), 3000);
@@ -203,27 +227,13 @@ function ProductDetail() {
         }
     };
 
-    // Handle Buy Now
-    const handleBuyNow = async () => {
-        if (!selectedSize) {
-            setSizeError(true);
-            setTimeout(() => setSizeError(false), 2000);
+    // Wishlist handler (icon on image)
+    const handleWishlist = () => {
+        if (!isLoggedIn()) {
+            showWarning('Please login to add to wishlist');
             return;
         }
-
-        setAddingToCart(true);
-
-        try {
-            await addToCart(product.id, 1);
-            navigate('/checkout');
-        } catch (error) {
-            console.error('Error:', error);
-            setToastMessage('Failed to process');
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 3000);
-        } finally {
-            setAddingToCart(false);
-        }
+        toggleWishlist(product);
     };
 
     const handleRetry = () => {
@@ -239,6 +249,7 @@ function ProductDetail() {
     }
 
     const images = product.images?.length ? product.images : [product.image].filter(Boolean);
+    const isWishlisted = isInWishlist(product.id);
 
     return (
         <div className="min-h-screen bg-white pt-20 pb-16 px-6 md:px-12">
@@ -253,14 +264,23 @@ function ProductDetail() {
             </button>
 
             <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12">
-                {/* LEFT - IMAGE SECTION */}
+                {/* LEFT - IMAGE SECTION with wishlist icon */}
                 <div className="space-y-4">
-                    <div className="relative bg-gray-100 rounded-2xl overflow-hidden aspect-square">
+                    <div className="relative bg-gray-100 rounded-2xl overflow-hidden aspect-square group">
                         <img
                             src={getImage(images[activeImg] || product.image)}
                             alt={product.name}
                             className="w-full h-full object-cover hover:scale-105 transition duration-500"
+                            onError={(e) => {
+                                e.target.src = 'https://via.placeholder.com/500x500?text=No+Image';
+                            }}
                         />
+                        {/* Wishlist Heart Icon Overlay */}
+                        <button
+                            onClick={handleWishlist}
+                            className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm p-2 rounded-full shadow-md hover:scale-110 transition z-10">
+                            <Heart size={20} className={isWishlisted ? 'fill-red-500 text-red-500' : 'text-gray-600'} />
+                        </button>
                     </div>
 
                     {/* Thumbnails */}
@@ -273,7 +293,14 @@ function ProductDetail() {
                                     className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition ${
                                         activeImg === i ? 'border-black' : 'border-transparent'
                                     }`}>
-                                    <img src={getImage(img)} alt={`View ${i + 1}`} className="w-full h-full object-cover" />
+                                    <img
+                                        src={getImage(img)}
+                                        alt={`View ${i + 1}`}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            e.target.src = 'https://via.placeholder.com/80x80?text=No+Image';
+                                        }}
+                                    />
                                 </button>
                             ))}
                         </div>
@@ -357,31 +384,23 @@ function ProductDetail() {
                         </div>
                     )}
 
-                    {/* ACTION BUTTONS */}
-                    <div className="flex gap-3 pt-4">
-                        <button
-                            onClick={handleAddToCart}
-                            disabled={addingToCart}
-                            className="flex-1 bg-white border-2 border-black text-black py-3.5 rounded-xl font-semibold hover:bg-gray-50 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                            {addingToCart ? (
-                                <>
-                                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                                    Adding...
-                                </>
-                            ) : (
-                                <>
-                                    <ShoppingBag size={18} />
-                                    Add to Cart
-                                </>
-                            )}
-                        </button>
-                        <button
-                            onClick={handleBuyNow}
-                            disabled={addingToCart}
-                            className="flex-1 bg-black text-white py-3.5 rounded-xl font-semibold hover:bg-gray-800 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                            Buy Now
-                        </button>
-                    </div>
+                    {/* ACTION BUTTONS - Only Add to Cart (Buy Now removed) */}
+                    <button
+                        onClick={handleAddToCart}
+                        disabled={addingToCart}
+                        className="w-full bg-black text-white py-3.5 rounded-xl font-semibold hover:bg-gray-800 transition flex items-center justify-center gap-2 disabled:opacity-50">
+                        {addingToCart ? (
+                            <>
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                Adding...
+                            </>
+                        ) : (
+                            <>
+                                <ShoppingBag size={18} />
+                                Add to Cart
+                            </>
+                        )}
+                    </button>
 
                     {/* FEATURES */}
                     <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-100">

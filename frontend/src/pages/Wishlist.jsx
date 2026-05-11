@@ -1,47 +1,93 @@
-import { useContext, useState } from 'react';
+// pages/Wishlist.jsx - COMPLETE WORKING VERSION
+import { useContext, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { WishlistContext } from '../context/WishlistContext';
 import { CartContext } from '../context/CartContext';
-import { ShoppingBag, Zap, Heart, Trash2, Star, ArrowRight, Sparkles, ShoppingCart, X } from 'lucide-react';
+import { ShoppingBag, Heart, Trash2, Star, ArrowRight, Sparkles, ShoppingCart, Loader2, Zap } from 'lucide-react';
+import { showSuccess, showWarning, showError } from '../utils/toast';
 
 function Wishlist() {
     const navigate = useNavigate();
-    const { wishlist, toggleWishlist } = useContext(WishlistContext);
+    const { wishlist, loading, removeFromWishlist, isInWishlist } = useContext(WishlistContext);
     const { addToCart } = useContext(CartContext);
 
     const [addingToCart, setAddingToCart] = useState({});
     const [removingItem, setRemovingItem] = useState(null);
 
-    const items = Array.isArray(wishlist) ? wishlist.filter((p) => p && p.id) : [];
-
-    const handleAddToCart = async (product) => {
-        setAddingToCart((prev) => ({ ...prev, [product.id]: true }));
-        const success = await addToCart(product.id, 1);
-        if (success) {
-            toggleWishlist(product);
+    // Check if user is logged in
+    useEffect(() => {
+        const token = localStorage.getItem('access');
+        if (!token) {
+            showWarning('Please login to view your wishlist');
+            navigate('/login');
         }
-        setTimeout(() => {
-            setAddingToCart((prev) => ({ ...prev, [product.id]: false }));
-        }, 500);
-    };
+    }, [navigate]);
 
-    const handleBuyNow = async (product) => {
-        const success = await addToCart(product.id, 1);
-        if (success) {
-            toggleWishlist(product);
-            navigate('/checkout');
+    // Add to cart and remove from wishlist
+    const handleAddToCart = async (product) => {
+        const token = localStorage.getItem('access');
+        if (!token) {
+            showWarning('Please login to add items to cart');
+            navigate('/login');
+            return;
+        }
+
+        if (!product.id) {
+            showError('Invalid product');
+            return;
+        }
+
+        setAddingToCart((prev) => ({ ...prev, [product.id]: true }));
+
+        try {
+            // Add to cart
+            await addToCart(product.id, 1, {
+                product_name: product.name,
+                product_price: product.price,
+                product_image: product.image,
+                brand: product.brand,
+            });
+
+            // Remove from wishlist after successful add to cart
+            removeFromWishlist(product.id);
+            showSuccess(`${product.name} moved to cart!`);
+        } catch (error) {
+            console.error('Add to cart error:', error);
+            showError('Failed to add to cart');
+        } finally {
+            setTimeout(() => {
+                setAddingToCart((prev) => ({ ...prev, [product.id]: false }));
+            }, 500);
         }
     };
 
     const handleRemove = (product) => {
         setRemovingItem(product.id);
         setTimeout(() => {
-            toggleWishlist(product);
+            removeFromWishlist(product.id);
             setRemovingItem(null);
         }, 300);
     };
 
-    if (items.length === 0) {
+    const getImageUrl = (imagePath) => {
+        if (!imagePath) return 'https://via.placeholder.com/300x300?text=No+Image';
+        if (imagePath.startsWith('http')) return imagePath;
+        if (imagePath.startsWith('/')) return `http://127.0.0.1:8000${imagePath}`;
+        return `http://127.0.0.1:8000/media/${imagePath}`;
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 pt-28 pb-16 px-4 md:px-8 flex items-center justify-center">
+                <div className="text-center">
+                    <Loader2 size={48} className="animate-spin text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">Loading your wishlist...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!wishlist || wishlist.length === 0) {
         return <EmptyWishlist />;
     }
 
@@ -56,17 +102,14 @@ function Wishlist() {
                     </div>
                     <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-black mb-3">My Wishlist</h1>
                     <p className="text-gray-400 max-w-md mx-auto">
-                        {items.length} {items.length === 1 ? 'item' : 'items'} waiting for you
+                        {wishlist.length} {wishlist.length === 1 ? 'item' : 'items'} waiting for you
                     </p>
                 </div>
 
                 {/* Product Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {items.map((product, index) => {
-                        const imageUrl = product.image?.startsWith('http')
-                            ? product.image
-                            : `http://127.0.0.1:8000${product.image}`;
-
+                    {wishlist.map((product) => {
+                        const imageUrl = getImageUrl(product.image);
                         const discount = product.discount || 25;
                         const originalPrice = product.originalPrice || Math.floor(product.price * (1 + discount / 100));
                         const rating = product.rating || 4.5;
@@ -85,6 +128,9 @@ function Wishlist() {
                                         src={imageUrl}
                                         alt={product.name}
                                         className="w-full h-full object-cover group-hover:scale-110 transition duration-700"
+                                        onError={(e) => {
+                                            e.target.src = 'https://via.placeholder.com/300x300?text=No+Image';
+                                        }}
                                     />
 
                                     {/* Discount Badge */}
@@ -141,36 +187,30 @@ function Wishlist() {
                                         <span className="text-lg font-bold text-gray-900">
                                             ₹{product.price?.toLocaleString()}
                                         </span>
-                                        <span className="text-[10px] text-gray-400 line-through">
-                                            ₹{originalPrice?.toLocaleString()}
-                                        </span>
+                                        {originalPrice && originalPrice > product.price && (
+                                            <span className="text-[10px] text-gray-400 line-through">
+                                                ₹{originalPrice?.toLocaleString()}
+                                            </span>
+                                        )}
                                     </div>
 
-                                    {/* Action Buttons */}
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => handleAddToCart(product)}
-                                            disabled={addingToCart[product.id]}
-                                            className="flex-1 bg-black text-white py-2 rounded-xl text-xs font-medium hover:bg-gray-800 transition flex items-center justify-center gap-1.5 disabled:opacity-50">
-                                            {addingToCart[product.id] ? (
-                                                <>
-                                                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                    Adding...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <ShoppingBag size={12} />
-                                                    Add to Cart
-                                                </>
-                                            )}
-                                        </button>
-                                        <button
-                                            onClick={() => handleBuyNow(product)}
-                                            className="flex-1 bg-gray-100 text-gray-800 py-2 rounded-xl text-xs font-medium hover:bg-gray-200 transition flex items-center justify-center gap-1.5">
-                                            <Zap size={12} />
-                                            Buy Now
-                                        </button>
-                                    </div>
+                                    {/* Add to Cart Button */}
+                                    <button
+                                        onClick={() => handleAddToCart(product)}
+                                        disabled={addingToCart[product.id]}
+                                        className="w-full bg-black text-white py-2 rounded-xl text-xs font-medium hover:bg-gray-800 transition flex items-center justify-center gap-1.5 disabled:opacity-50">
+                                        {addingToCart[product.id] ? (
+                                            <>
+                                                <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                Adding...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ShoppingBag size={12} />
+                                                Add to Cart
+                                            </>
+                                        )}
+                                    </button>
                                 </div>
                             </div>
                         );
@@ -191,14 +231,13 @@ function Wishlist() {
     );
 }
 
-// Empty Wishlist Component - Stunning Design
+// Empty Wishlist Component
 const EmptyWishlist = () => {
     const navigate = useNavigate();
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 pt-28 pb-16 px-4 md:px-8 flex items-center justify-center">
             <div className="text-center max-w-md">
-                {/* Animated Heart */}
                 <div className="relative mb-8">
                     <div className="w-32 h-32 mx-auto bg-white rounded-full shadow-lg flex items-center justify-center">
                         <Heart size={48} className="text-gray-300" />

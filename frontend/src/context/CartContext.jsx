@@ -1,133 +1,212 @@
-import { createContext, useState, useEffect } from 'react';
-import api from '../utils/api';
-
-import { showSuccess, showError, showInfo } from '../utils/toast';
+// context/CartContext.jsx - FIXED: Cart items persist on refresh
+import React, { createContext, useState, useEffect } from 'react';
 
 export const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-    const [cart, setCart] = useState([]);
-    const [open, setOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [cart, setCart] = useState({ items: [] });
+    const [cartCount, setCartCount] = useState(0);
+    const [buyNowItemId, setBuyNowItemId] = useState(null);
+    const [lastUser, setLastUser] = useState(null);
+    const [isInitialized, setIsInitialized] = useState(false); // ✅ Track initialization
 
-    // ================= FETCH CART =================
-    const fetchCart = async () => {
-        const token = localStorage.getItem('access');
-
-        if (!token) {
-            setCart([]);
-            return;
-        }
-
-        try {
-            setLoading(true);
-
-            // ✅ CORRECT
-            const res = await api.get('/cart/');
-
-            setCart(res.data || []);
-        } catch (err) {
-            console.error(err);
-
-            if (err.response?.data?.code === 'token_not_valid') {
-                localStorage.removeItem('access');
-                localStorage.removeItem('refresh');
-
-                setCart([]);
-
-                showError('Session expired. Please login again.');
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    // Load cart from localStorage on mount
     useEffect(() => {
-        if (localStorage.getItem('access')) {
-            fetchCart();
+        const savedCart = localStorage.getItem('cart');
+        const currentUser = localStorage.getItem('access');
+
+        if (savedCart) {
+            try {
+                const parsedCart = JSON.parse(savedCart);
+                setCart(parsedCart);
+                const totalItems = parsedCart.items.reduce((sum, item) => sum + item.quantity, 0);
+                setCartCount(totalItems);
+            } catch {
+                setCart({ items: [] });
+                setCartCount(0);
+                localStorage.setItem('cart', JSON.stringify({ items: [] }));
+            }
+        } else {
+            // Initialize empty cart in localStorage
+            localStorage.setItem('cart', JSON.stringify({ items: [] }));
         }
+
+        setLastUser(currentUser);
+        setIsInitialized(true);
     }, []);
 
-    // ================= ADD TO CART =================
-    const addToCart = async (product_id, quantity = 1) => {
-        const token = localStorage.getItem('access');
+    // ✅ FIX: Detect user change and clear cart for new users (only after initialization)
+    useEffect(() => {
+        if (!isInitialized) return;
 
-        if (!token) {
-            showError('Please login first');
+        const currentUser = localStorage.getItem('access');
 
-            setTimeout(() => {
-                window.location.href = '/login';
-            }, 1200);
-
-            return false;
+        if (lastUser !== currentUser) {
+            if (!lastUser && currentUser) {
+                // New user logged in - start with empty cart
+                setCart({ items: [] });
+                setCartCount(0);
+                localStorage.setItem('cart', JSON.stringify({ items: [] }));
+            }
+            setLastUser(currentUser);
         }
+    }, [lastUser, isInitialized]);
 
-        try {
-            // ✅ CORRECT
-            await api.post('/cart/add/', {
-                product: product_id,
+    // Save cart to localStorage whenever it changes
+    useEffect(() => {
+        if (isInitialized) {
+            localStorage.setItem('cart', JSON.stringify(cart));
+            const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+            setCartCount(totalItems);
+        }
+    }, [cart, isInitialized]);
+
+    // Regular Add to Cart
+    const addToCart = (productId, quantity = 1, productData = {}) => {
+        setCart((prevCart) => {
+            const existingIndex = prevCart.items.findIndex(
+                (item) => (item.product_id || item.id) === productId && !item.is_buy_now,
+            );
+
+            if (existingIndex !== -1) {
+                const updated = [...prevCart.items];
+                updated[existingIndex].quantity = Math.min(10, updated[existingIndex].quantity + quantity);
+                return { ...prevCart, items: updated };
+            }
+
+            const newItem = {
+                cart_item_id: Date.now(),
+                id: productId,
+                product_id: productId,
                 quantity,
-            });
+                product_name: productData.product_name || 'Product',
+                product_price: productData.product_price || 0,
+                product_image: productData.product_image || '',
+                brand: productData.brand || '',
+                is_buy_now: false,
+                added_at: new Date().toISOString(),
+            };
 
-            await fetchCart();
-
-            setOpen(true);
-
-            showSuccess('Added to cart 🛒');
-
-            return true;
-        } catch (err) {
-            console.error(err);
-
-            showError('Failed to add item');
-
-            return false;
-        }
+            return {
+                ...prevCart,
+                items: [...prevCart.items, newItem],
+            };
+        });
     };
 
-    // ================= UPDATE CART =================
-    const updateCart = async (item_id, quantity) => {
-        try {
-            // ✅ CORRECT
-            await api.put('/cart/update/', {
-                item_id,
+    // Buy Now - Adds item with is_buy_now flag, but KEEPS existing cart items
+    const buyNow = (productId, quantity = 1, productData = {}) => {
+        setCart((prevCart) => {
+            const existingIndex = prevCart.items.findIndex(
+                (item) => (item.product_id || item.id) === productId && item.is_buy_now === true,
+            );
+
+            if (existingIndex !== -1) {
+                const updated = [...prevCart.items];
+                updated[existingIndex].quantity = Math.min(10, updated[existingIndex].quantity + quantity);
+                setBuyNowItemId(updated[existingIndex].cart_item_id);
+                return { ...prevCart, items: updated };
+            }
+
+            const newBuyNowItem = {
+                cart_item_id: Date.now(),
+                id: productId,
+                product_id: productId,
                 quantity,
-            });
+                product_name: productData.product_name || 'Product',
+                product_price: productData.product_price || 0,
+                product_image: productData.product_image || '',
+                brand: productData.brand || '',
+                is_buy_now: true,
+                added_at: new Date().toISOString(),
+            };
 
-            await fetchCart();
+            setBuyNowItemId(newBuyNowItem.cart_item_id);
 
-            showInfo('Cart updated');
-        } catch (err) {
-            console.error(err);
-
-            showError('Failed to update cart');
-        }
+            return {
+                ...prevCart,
+                items: [...prevCart.items, newBuyNowItem],
+            };
+        });
     };
 
-    // ================= REMOVE =================
-    const removeItem = async (item_id) => {
-        try {
-            await api.delete(`/cart/remove/${item_id}/`);
+    // Get Buy Now items
+    const getBuyNowItems = () => {
+        return cart.items.filter((item) => item.is_buy_now === true);
+    };
 
-            await fetchCart();
-        } catch (err) {
-            console.error(err);
+    // Get regular items (for cart display and regular checkout)
+    const getRegularItems = () => {
+        return cart.items.filter((item) => item.is_buy_now !== true);
+    };
 
-            showError('Failed to remove item');
-        }
+    // Check if has Buy Now items
+    const hasBuyNowItems = () => {
+        return cart.items.some((item) => item.is_buy_now === true);
+    };
+
+    // Clear ONLY Buy Now items after order (keep regular cart items)
+    const clearBuyNowItems = () => {
+        setCart((prevCart) => ({
+            items: prevCart.items.filter((item) => item.is_buy_now !== true),
+        }));
+        setBuyNowItemId(null);
+    };
+
+    // Update quantity
+    const updateCart = (itemId, newQuantity) => {
+        setCart((prevCart) => {
+            const updatedItems = prevCart.items.map((item) => {
+                const uniqueId = item.cart_item_id || item.id;
+                if (uniqueId === itemId) {
+                    return { ...item, quantity: Math.max(1, Math.min(99, newQuantity)) };
+                }
+                return item;
+            });
+            return { ...prevCart, items: updatedItems };
+        });
+    };
+
+    // Remove item
+    const removeItem = (itemId) => {
+        setCart((prevCart) => ({
+            ...prevCart,
+            items: prevCart.items.filter((item) => {
+                const uniqueId = item.cart_item_id || item.id;
+                return uniqueId !== itemId;
+            }),
+        }));
+    };
+
+    // Clear entire cart
+    const clearCart = () => {
+        setCart({ items: [] });
+        setBuyNowItemId(null);
+        localStorage.setItem('cart', JSON.stringify({ items: [] }));
+    };
+
+    // Get cart count (only regular items, not buy now)
+    const getCartCount = () => {
+        const regularItems = cart.items.filter((item) => item.is_buy_now !== true);
+        return regularItems.reduce((sum, item) => sum + item.quantity, 0);
     };
 
     return (
         <CartContext.Provider
             value={{
                 cart,
-                loading,
+                cartCount,
                 addToCart,
+                buyNow,
                 updateCart,
                 removeItem,
-                open,
-                setOpen,
-                fetchCart,
+                clearCart,
+                clearBuyNowItems,
+                getBuyNowItems,
+                getRegularItems,
+                hasBuyNowItems,
+                getCartCount,
+                buyNowItemId,
             }}>
             {children}
         </CartContext.Provider>

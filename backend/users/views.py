@@ -1,15 +1,17 @@
-# users/views.py
-from .serializers import UserSerializer, UserUpdateSerializer, UserAddressSerializer
-from rest_framework.decorators import api_view, permission_classes
-from django.contrib.auth import get_user_model
-from rest_framework.permissions import IsAuthenticated, AllowAny
+# users/views.py - CONVERTED TO GENERIC VIEWS (ALL FEATURES PRESERVED)
+from rest_framework import generics, status, serializers
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.views import APIView
+from rest_framework.generics import GenericAPIView, ListAPIView, RetrieveAPIView, UpdateAPIView, DestroyAPIView
+from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework.response import Response
-from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from django.contrib.auth import get_user_model, authenticate
+from .serializers import UserSerializer, UserUpdateSerializer, UserAddressSerializer
 from .models import UserAddress
-import json
-import traceback
 
 # Import Cart and Wishlist
 from cart.models import Cart
@@ -19,75 +21,124 @@ User = get_user_model()
 
 
 # =========================
-# JWT LOGIN
+# JWT LOGIN - CUSTOMER ONLY (BLOCKS ADMIN)
 # =========================
-class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+class CustomerTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
         token['username'] = user.username
         token['email'] = user.email
         return token
+    
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        
+        # 🔴 BLOCK admin users from customer login
+        if self.user.is_staff or self.user.is_superuser:
+            raise serializers.ValidationError(
+                'Admin users cannot login as customers. Please use the admin login page.'
+            )
+        
+        return data
 
 
-class MyTokenObtainPairView(TokenObtainPairView):
-    serializer_class = MyTokenObtainPairSerializer
+class CustomerTokenObtainPairView(TokenObtainPairView):
+    """Customer only login - Blocks admin users"""
+    serializer_class = CustomerTokenObtainPairSerializer
 
 
 # =========================
-# REGISTER
+# ADMIN LOGIN ONLY (BLOCKS REGULAR USERS)
 # =========================
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def register_user(request):
-    username = request.data.get('username')
-    email = request.data.get('email')
-    password = request.data.get('password')
+class AdminTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        
+        # 🔴 ONLY allow admin users
+        if not (self.user.is_staff or self.user.is_superuser):
+            raise serializers.ValidationError(
+                'Access denied. Admin privileges required.'
+            )
+        
+        # ✅ REMOVED the restriction to only 'adminrana'
+        # Now ANY admin user (is_staff=True or is_superuser=True) can login
+        
+        return data
 
-    if not username or not email or not password:
-        return Response(
-            {'error': 'All fields are required'},
-            status=status.HTTP_400_BAD_REQUEST
+
+class AdminTokenObtainPairView(TokenObtainPairView):
+    """Admin only login - Blocks regular users"""
+    serializer_class = AdminTokenObtainPairSerializer
+
+
+# =========
+# REGISTER 
+# =========
+class RegisterUserView(GenericAPIView):
+    """Register a new user - Regular customer only"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        username = request.data.get('username')
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        if not username or not email or not password:
+            return Response(
+                {'error': 'All fields are required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Block registration of admin usernames
+        if username.lower() in ['adminrana', 'admin1', 'admin2', 'superadmin']:
+            return Response(
+                {'error': 'This username is reserved'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if User.objects.filter(username=username).exists():
+            return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(email=email).exists():
+            return Response({'error': 'Email already registered'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create regular user (NOT admin)
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            is_staff=False,  # Explicitly NOT admin
+            is_superuser=False  # Explicitly NOT superuser
         )
 
-    if User.objects.filter(username=username).exists():
-        return Response({'error': 'Username already exists'}, status=status.HTTP_400_BAD_REQUEST)
+        Cart.objects.create(user=user)
 
-    if User.objects.filter(email=email).exists():
-        return Response({'error': 'Email already registered'}, status=status.HTTP_400_BAD_REQUEST)
-
-    user = User.objects.create_user(
-        username=username,
-        email=email,
-        password=password
-    )
-
-    Cart.objects.create(user=user)
-
-    return Response({
-        'message': 'User created successfully',
-        'user': {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email
-        }
-    }, status=status.HTTP_201_CREATED)
+        return Response({
+            'message': 'User created successfully',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email
+            }
+        }, status=status.HTTP_201_CREATED)
 
 
 # =========================
-# USER PROFILE
+# USER PROFILE 
 # =========================
-@api_view(['GET', 'PUT'])
-@permission_classes([IsAuthenticated])
-def profile(request):
-    user = request.user
+class ProfileView(GenericAPIView):
+    """Get and update user profile"""
+    permission_classes = [IsAuthenticated]
 
-    if request.method == 'GET':
+    def get(self, request):
+        user = request.user
         serializer = UserSerializer(user)
         return Response(serializer.data)
 
-    elif request.method == 'PUT':
+    def put(self, request):
         try:
+            user = request.user
             serializer = UserUpdateSerializer(
                 user, data=request.data, partial=True)
             if serializer.is_valid():
@@ -100,50 +151,47 @@ def profile(request):
 
 
 # =========================
-# SIMPLE PROFILE
+#   SIMPLE PROFILE 
 # =========================
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_user_profile(request):
-    user = request.user
-    return Response({
-        'id': user.id,
-        'username': user.username,
-        'email': user.email,
-        'phone': user.phone,
-        'profile_picture': user.profile_picture.url if user.profile_picture else None,
-        'bio': user.bio
-    })
+class GetUserProfileView(GenericAPIView):
+    """Get simple user profile"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'phone': getattr(user, 'phone', ''),
+            'profile_picture': user.profile_picture.url if hasattr(user, 'profile_picture') and user.profile_picture else None,
+            'bio': getattr(user, 'bio', '')
+        })
 
 
 # =========================
-# ADDRESS VIEWS - COMPLETELY REWRITTEN
+# ADDRESS VIEWS 
 # =========================
-@api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
-def user_addresses(request):
-    user = request.user
+class UserAddressesView(GenericAPIView):
+    """Get all addresses and create new address"""
+    permission_classes = [IsAuthenticated]
 
-    if request.method == 'GET':
+    def get(self, request):
         try:
             addresses = UserAddress.objects.filter(
-                user=user).order_by('-is_default', '-created_at')
+                user=request.user
+            ).order_by('-is_default', '-created_at')
             serializer = UserAddressSerializer(addresses, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             print("GET Addresses Error:", str(e))
-            print(traceback.format_exc())
             return Response(
                 {'error': f'Failed to fetch addresses: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    elif request.method == 'POST':
+    def post(self, request):
         try:
-            # Log incoming data for debugging
-            print("POST Address Data:", request.data)
-
-            # Validate required fields
             required_fields = ['address', 'city', 'state', 'pincode']
             missing_fields = [
                 field for field in required_fields if not request.data.get(field)]
@@ -154,7 +202,6 @@ def user_addresses(request):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Prepare data for serializer
             address_data = {
                 'full_name': request.data.get('full_name', ''),
                 'phone': request.data.get('phone', ''),
@@ -165,65 +212,56 @@ def user_addresses(request):
                 'is_default': request.data.get('is_default', False)
             }
 
-            serializer = UserAddressSerializer(data=address_data)
+            user_address_count = UserAddress.objects.filter(
+                user=request.user).count()
+            is_default = address_data['is_default']
 
-            if serializer.is_valid():
-                # Check if this is the first address for the user
-                user_address_count = UserAddress.objects.filter(
-                    user=user).count()
-                is_default = address_data['is_default']
+            if user_address_count == 0:
+                is_default = True
+            elif is_default:
+                UserAddress.objects.filter(
+                    user=request.user).update(is_default=False)
 
-                # If no addresses exist, force this to be default
-                if user_address_count == 0:
-                    is_default = True
-                elif is_default:
-                    # Remove default from all other addresses
-                    UserAddress.objects.filter(
-                        user=user).update(is_default=False)
+            address = UserAddress.objects.create(
+                user=request.user,
+                full_name=address_data['full_name'],
+                phone=address_data['phone'],
+                address=address_data['address'],
+                city=address_data['city'],
+                state=address_data['state'],
+                pincode=address_data['pincode'],
+                is_default=is_default
+            )
 
-                # Save the address
-                address = UserAddress.objects.create(
-                    user=user,
-                    full_name=address_data['full_name'],
-                    phone=address_data['phone'],
-                    address=address_data['address'],
-                    city=address_data['city'],
-                    state=address_data['state'],
-                    pincode=address_data['pincode'],
-                    is_default=is_default
-                )
-
-                # Return the saved address
-                response_serializer = UserAddressSerializer(address)
-                return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-            else:
-                print("Serializer validation errors:", serializer.errors)
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            response_serializer = UserAddressSerializer(address)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             print("POST Address Error:", str(e))
-            print(traceback.format_exc())
             return Response(
                 {'error': f'Failed to save address: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
-@api_view(['PUT', 'DELETE'])
-@permission_classes([IsAuthenticated])
-def user_address_detail(request, address_id):
-    user = request.user
+class UserAddressDetailView(GenericAPIView):
+    """Update and delete specific address"""
+    permission_classes = [IsAuthenticated]
 
-    try:
-        address = UserAddress.objects.get(id=address_id, user=user)
-    except UserAddress.DoesNotExist:
-        return Response({'error': 'Address not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    if request.method == 'PUT':
+    def get_object(self, address_id, user):
         try:
-            # Update address fields
+            return UserAddress.objects.get(id=address_id, user=user)
+        except UserAddress.DoesNotExist:
+            return None
+
+    def put(self, request, address_id):
+        user = request.user
+        address = self.get_object(address_id, user)
+
+        if not address:
+            return Response({'error': 'Address not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
             if 'full_name' in request.data:
                 address.full_name = request.data['full_name']
             if 'phone' in request.data:
@@ -237,75 +275,221 @@ def user_address_detail(request, address_id):
             if 'pincode' in request.data:
                 address.pincode = request.data['pincode']
             if 'is_default' in request.data and request.data['is_default']:
-                # Remove default from all other addresses
                 UserAddress.objects.filter(user=user).exclude(
                     id=address_id).update(is_default=False)
                 address.is_default = True
 
             address.save()
-
             serializer = UserAddressSerializer(address)
             return Response(serializer.data)
 
         except Exception as e:
-            print("PUT Address Error:", str(e))
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    elif request.method == 'DELETE':
+    def delete(self, request, address_id):
+        user = request.user
+        address = self.get_object(address_id, user)
+
+        if not address:
+            return Response({'error': 'Address not found'}, status=status.HTTP_404_NOT_FOUND)
+
         try:
-            # Don't allow deleting if it's the only address
             address_count = UserAddress.objects.filter(user=user).count()
             if address_count <= 1:
                 return Response(
                     {'error': 'Cannot delete the only address. Add another address first.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-
             address.delete()
             return Response({'message': 'Address deleted successfully'}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['PUT'])
-@permission_classes([IsAuthenticated])
-def set_default_address(request, address_id):
-    user = request.user
+class SetDefaultAddressView(GenericAPIView):
+    """Set an address as default"""
+    permission_classes = [IsAuthenticated]
 
-    try:
-        address = UserAddress.objects.get(id=address_id, user=user)
-    except UserAddress.DoesNotExist:
-        return Response({'error': 'Address not found'}, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    def put(self, request, address_id):
+        user = request.user
 
-    try:
-        # Remove default from all other addresses
-        UserAddress.objects.filter(user=user).update(is_default=False)
+        try:
+            address = UserAddress.objects.get(id=address_id, user=user)
+        except UserAddress.DoesNotExist:
+            return Response({'error': 'Address not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        # Set this address as default
-        address.is_default = True
-        address.save()
-
-        return Response({'message': 'Default address updated successfully'}, status=status.HTTP_200_OK)
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        try:
+            UserAddress.objects.filter(user=user).update(is_default=False)
+            address.is_default = True
+            address.save()
+            return Response({'message': 'Default address updated successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # =========================
-# DELETE ACCOUNT
+# DELETE ACCOUNT - GENERIC VIEW
 # =========================
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated])
-def delete_account(request):
-    user = request.user
-    try:
-        Cart.objects.filter(user=user).delete()
-    except:
-        pass
-    try:
-        Wishlist.objects.filter(user=user).delete()
-    except:
-        pass
-    user.delete()
-    return Response({'message': 'Account deleted successfully'}, status=status.HTTP_200_OK)
+class DeleteAccountView(GenericAPIView):
+    """Delete user account - Only if no pending orders"""
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+
+        try:
+            from orders.models import Order
+
+            pending_statuses = ['pending', 'processing',
+                                'shipped', 'confirmed', 'out_for_delivery']
+            pending_orders = Order.objects.filter(
+                user=user, status__in=pending_statuses)
+
+            if pending_orders.exists():
+                return Response({
+                    'error': f'Cannot delete account. You have {pending_orders.count()} pending order(s). Please complete or cancel them first.',
+                    'pending_orders_count': pending_orders.count()
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Delete related data
+            try:
+                Cart.objects.filter(user=user).delete()
+            except:
+                pass
+
+            try:
+                Wishlist.objects.filter(user=user).delete()
+            except:
+                pass
+
+            try:
+                UserAddress.objects.filter(user=user).delete()
+            except:
+                pass
+
+            user.delete()
+
+            return Response({
+                'message': 'Account deleted successfully',
+                'success': True
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            print(f"Delete account error: {str(e)}")
+            return Response({
+                'error': f'Failed to delete account: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# =========================
+# ADMIN - BLOCK / UNBLOCK USER - GENERIC VIEW
+# =========================
+class BlockUserView(GenericAPIView):
+    """Admin: Block or unblock a user"""
+    permission_classes = [IsAdminUser]
+
+    def put(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            user.is_active = not user.is_active
+            user.save()
+            return Response({
+                "message": "User status updated",
+                "id": user.id,
+                "is_active": user.is_active
+            })
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+# =========================
+# ADMIN - GET/UPDATE SINGLE USER - GENERIC VIEW
+# =========================
+class AdminUserDetailView(GenericAPIView):
+    """Admin: Get or update a single user"""
+    permission_classes = [IsAdminUser]
+
+    def get_object(self, user_id):
+        try:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return None
+
+    def get(self, request, user_id):
+        user = self.get_object(user_id)
+        if not user:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        data = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_active": user.is_active,
+            "is_staff": user.is_staff,
+            "is_superuser": user.is_superuser,
+            "date_joined": user.date_joined,
+            "last_login": user.last_login,
+        }
+        return Response(data)
+
+    def patch(self, request, user_id):
+        user = self.get_object(user_id)
+        if not user:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if 'is_active' in request.data:
+            user.is_active = request.data['is_active']
+        if 'is_staff' in request.data:
+            user.is_staff = request.data['is_staff']
+        if 'first_name' in request.data:
+            user.first_name = request.data['first_name']
+        if 'last_name' in request.data:
+            user.last_name = request.data['last_name']
+        if 'email' in request.data:
+            user.email = request.data['email']
+
+        user.save()
+
+        return Response({
+            "message": "User updated successfully",
+            "id": user.id,
+            "is_active": user.is_active,
+            "is_staff": user.is_staff
+        })
+
+    def put(self, request, user_id):
+        return self.patch(request, user_id)
+
+# =========================
+# ADMIN - GET ALL USERS WITH ORDER COUNT - GENERIC VIEW
+# =========================
+class AdminUsersView(ListAPIView):
+    """Admin: Get all regular users (customers only, not admins)"""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        from orders.models import Order
+
+        # ✅ Filter: Show ONLY regular users (NOT admins)
+        # Exclude users who are staff or superuser
+        users = User.objects.filter(
+            is_staff=False,      # Not admin staff
+            is_superuser=False   # Not superuser
+        ).order_by('-date_joined')
+
+        data = []
+        for user in users:
+            order_count = Order.objects.filter(user=user).count()
+
+            data.append({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "is_active": user.is_active,
+                "date_joined": user.date_joined,
+                "order_count": order_count,
+            })
+
+        return Response(data)

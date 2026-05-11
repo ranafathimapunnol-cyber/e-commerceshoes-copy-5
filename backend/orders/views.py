@@ -1,206 +1,298 @@
-# orders/views.py
-from django.utils import timezone
-from datetime import timedelta
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+# orders/views.py - CONVERTED TO GENERIC VIEWS (ALL FEATURES PRESERVED)
+from rest_framework.generics import GenericAPIView, ListAPIView, RetrieveAPIView
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
+from rest_framework import status
 from .models import Order, OrderItem
 from products.models import Product
+from .serializers import OrderSerializer
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def create_order(request):
-    try:
-        data = request.data
-        print("Received data:", data)
+# =========================
+# 1. CREATE ORDER (USER) - WITH DUPLICATE PREVENTION
+# =========================
+class CreateOrderView(GenericAPIView):
+    """Create new order with stock deduction and duplicate prevention"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrderSerializer
 
-        items = data.get('items', [])
-        total_price = data.get('total_price')
-        shipping_address = data.get('shipping_address', '')
-        payment_method = data.get('payment_method', 'cod')
+    def post(self, request):
+        try:
+            data = request.data
+            items = data.get('items', [])
+            total_price = data.get('total_price')
+            shipping_address = data.get('shipping_address', '')
+            payment_method = data.get('payment_method', 'cod')
 
-        # Validate required fields
-        if not items:
-            return Response({'error': 'No items in order'}, status=400)
+            if not items:
+                return Response({'error': 'No items in order'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not total_price:
-            return Response({'error': 'Total price is required'}, status=400)
+            if not total_price:
+                return Response({'error': 'Total price is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if all products exist
-        product_ids = []
-        for item in items:
-            product_id = item.get('product')
-            if not product_id:
-                return Response({'error': 'Product ID missing in item'}, status=400)
-            product_ids.append(product_id)
+            # Check stock
+            stock_errors = []
+            for item in items:
+                product_id = item.get('product')
+                quantity = item.get('quantity', 1)
+                try:
+                    product = Product.objects.get(id=product_id)
+                    if product.stock < quantity:
+                        stock_errors.append(
+                            f"{product.name}: Only {product.stock} available")
+                except Product.DoesNotExist:
+                    return Response({'error': f'Product with ID {product_id} not found'}, status=status.HTTP_400_BAD_REQUEST)
 
-        existing_products = Product.objects.filter(id__in=product_ids)
-        existing_ids = set(existing_products.values_list('id', flat=True))
+            if stock_errors:
+                return Response({'error': 'Insufficient stock', 'details': stock_errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        missing_ids = set(product_ids) - existing_ids
-        if missing_ids:
-            return Response({
-                'error': f'Products not found with IDs: {list(missing_ids)}'
-            }, status=400)
-
-        # Create Order
-        order = Order.objects.create(
-            user=request.user,
-            total_price=total_price,
-            is_paid=(payment_method != 'cod'),
-            status='pending',
-            shipping_address=shipping_address,
-            payment_method=payment_method
-        )
-
-        # Create Order Items
-        order_total = 0
-        for item in items:
-            product = Product.objects.get(id=item['product'])
-            quantity = item['quantity']
-            item_price = product.price * quantity
-
-            OrderItem.objects.create(
-                order=order,
-                product=product,
-                quantity=quantity,
-                price=item_price
+            # Create Order
+            order = Order.objects.create(
+                user=request.user,
+                total_price=total_price,
+                is_paid=(payment_method != 'cod'),
+                status='pending',
+                shipping_address=shipping_address,
+                payment_method=payment_method
             )
-            order_total += item_price
 
-        # Update order total if needed
-        order.total_price = order_total
+            # Create Order Items and deduct stock
+            order_total = 0
+            for item in items:
+                product = Product.objects.get(id=item['product'])
+                quantity = item.get('quantity', 1)
+                item_price = product.price * quantity
+
+                product.stock -= quantity
+                product.save()
+
+                OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=quantity,
+                    price=item_price
+                )
+                order_total += item_price
+
+            order.total_price = order_total
+            order.save()
+
+            # ✅ Create notification for admins (ONLY ONCE)
+            try:
+                from notifications.models import Notification
+                admin_users = User.objects.filter(is_staff=True)
+
+                for admin in admin_users:
+                    # Check if notification already exists for this order
+                    existing = Notification.objects.filter(
+                        user=admin,
+                        message__contains=f'Order #{order.id}'
+                    ).exists()
+
+                    if not existing:
+                        Notification.objects.create(
+                            user=admin,
+                            title='🛒 New Order!',
+                            message=f'Order #{order.id} - ₹{order_total} from {request.user.username}',
+                            notification_type='order'
+                        )
+                        print(f"✅ Notification created for {admin.username}")
+                    else:
+                        print(
+                            f"⚠️ Notification already exists for order #{order.id}")
+
+            except Exception as e:
+                print(f"Notification creation failed: {e}")
+
+            return Response({
+                'success': True,
+                'message': 'Order placed successfully',
+                'order_id': order.id,
+                'status': order.status,
+                'total_price': str(order.total_price)
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            print("Error creating order:", str(e))
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# =========================
+# 2. MY ORDERS (USER)
+# =========================
+class MyOrdersView(ListAPIView):
+    """Get current user's orders"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrderSerializer
+
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user).order_by('-created_at')
+
+
+# =========================
+# 3. ORDER DETAIL (USER)
+# =========================
+class OrderDetailView(RetrieveAPIView):
+    """Get single order details for current user"""
+    permission_classes = [IsAuthenticated]
+    serializer_class = OrderSerializer
+
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user)
+
+    def get_object(self):
+        return self.get_queryset().get(id=self.kwargs['order_id'])
+
+
+# =========================
+# 4. UPDATE ORDER STATUS (USER)
+# =========================
+class UpdateOrderStatusView(GenericAPIView):
+    """User updates their own order status following flow"""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id, user=request.user)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        status_flow = {
+            'pending': 'confirmed',
+            'confirmed': 'processing',
+            'processing': 'shipped',
+            'shipped': 'out_for_delivery',
+            'out_for_delivery': 'delivered'
+        }
+
+        if order.status in status_flow:
+            order.status = status_flow[order.status]
+            order.save()
+            return Response({'status': order.status, 'message': 'Status updated'}, status=status.HTTP_200_OK)
+
+        return Response({'error': 'Cannot update status'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# =========================
+# 5. ADMIN - GET ALL ORDERS
+# =========================
+class AdminOrdersView(ListAPIView):
+    """Get (all orders) for admin panel"""
+    permission_classes = [IsAdminUser]
+    serializer_class = OrderSerializer
+    queryset = Order.objects.all().order_by('-created_at')
+
+
+# =========================
+# 6. ADMIN - GET SINGLE ORDER
+# =========================
+class AdminOrderDetailView(RetrieveAPIView):
+    """Get single order for admin"""
+    permission_classes = [IsAdminUser]
+    serializer_class = OrderSerializer
+    lookup_field = 'order_id'
+    lookup_url_kwarg = 'order_id'
+
+    def get_queryset(self):
+        return Order.objects.all()
+
+
+# =========================
+# 7. ADMIN - UPDATE ORDER STATUS
+# =========================
+class AdminUpdateOrderStatusView(GenericAPIView):
+    """Admin updates order status"""
+    permission_classes = [IsAdminUser]
+
+    def patch(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if 'status' not in request.data:
+            return Response({"error": "Status is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        new_status = request.data['status'].lower()
+        valid_statuses = ['pending', 'processing',
+                          'shipped', 'delivered', 'cancelled']
+
+        if new_status not in valid_statuses:
+            return Response({"error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"}, status=status.HTTP_400_BAD_REQUEST)
+
+        order.status = new_status
         order.save()
 
         return Response({
-            'success': True,
-            'message': 'Order placed successfully',
-            'order_id': order.id,
-            'status': order.status,
-            'total_price': str(order.total_price)
-        }, status=201)
+            "message": "Order status updated successfully",
+            "id": order.id,
+            "status": order.status
+        }, status=status.HTTP_200_OK)
 
-    except Exception as e:
-        print("Error creating order:", str(e))
-        return Response({'error': str(e)}, status=500)
+    # Support PUT and POST methods too (for frontend compatibility)
+    def put(self, request, order_id):
+        return self.patch(request, order_id)
 
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def my_orders(request):
-    try:
-        orders = Order.objects.filter(
-            user=request.user).order_by('-created_at')
-
-        data = []
-        for order in orders:
-            items = OrderItem.objects.filter(order=order)
-            order_items = []
-
-            for item in items:
-                order_items.append({
-                    'id': item.id,
-                    'quantity': item.quantity,
-                    'price': str(item.price),
-                    'product': {
-                        'id': item.product.id,
-                        'name': item.product.name,
-                        'price': str(item.product.price),
-                        'image': item.product.image.url if item.product.image else None
-                    }
-                })
-
-            data.append({
-                'id': order.id,
-                'total_price': str(order.total_price),
-                'is_paid': order.is_paid,
-                'status': order.status,
-                'status_display': dict(Order.STATUS_CHOICES).get(order.status, order.status),
-                'created_at': order.created_at,
-                'updated_at': order.updated_at,
-                'shipping_address': order.shipping_address,
-                'payment_method': order.payment_method,
-                'tracking_number': order.tracking_number,
-                'items': order_items
-            })
-
-        return Response(data)
-    except Exception as e:
-        print("Error fetching orders:", str(e))
-        return Response({'error': str(e)}, status=500)
+    def post(self, request, order_id):
+        return self.patch(request, order_id)
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def order_detail(request, order_id):
-    """Get single order details"""
-    try:
-        order = Order.objects.get(id=order_id, user=request.user)
-        items = OrderItem.objects.filter(order=order)
+# =========================
+# 8. ADMIN - CANCEL ORDER (WITH STOCK RESTORE)
+# =========================
+class AdminCancelOrderView(GenericAPIView):
+    """Admin cancels order and restores stock"""
+    permission_classes = [IsAdminUser]
 
-        order_items = []
-        for item in items:
-            order_items.append({
-                'id': item.id,
-                'quantity': item.quantity,
-                'price': str(item.price),
-                'product': {
-                    'id': item.product.id,
-                    'name': item.product.name,
-                    'price': str(item.product.price),
-                    'image': item.product.image.url if item.product.image else None
-                }
-            })
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        data = {
-            'id': order.id,
-            'total_price': str(order.total_price),
-            'is_paid': order.is_paid,
-            'status': order.status,
-            'status_display': dict(Order.STATUS_CHOICES).get(order.status, order.status),
-            'created_at': order.created_at,
-            'updated_at': order.updated_at,
-            'shipping_address': order.shipping_address,
-            'payment_method': order.payment_method,
-            'tracking_number': order.tracking_number,
-            'items': order_items
-        }
+        if order.status == 'cancelled':
+            return Response({"error": "Order already cancelled"}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response(data)
-    except Order.DoesNotExist:
-        return Response({'error': 'Order not found'}, status=404)
-    except Exception as e:
-        print("Error fetching order detail:", str(e))
-        return Response({'error': str(e)}, status=500)
+        # Restore stock
+        for item in order.items.all():
+            product = item.product
+            product.stock += item.quantity
+            product.save()
 
-
-# Add this function to update order status over time
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def update_order_status(request, order_id):
-    try:
-        order = Order.objects.get(id=order_id, user=request.user)
-    except Order.DoesNotExist:
-        return Response({'error': 'Order not found'}, status=404)
-
-    status_flow = {
-        'pending': 'confirmed',
-        'confirmed': 'processing',
-        'processing': 'shipped',
-        'shipped': 'out_for_delivery',
-        'out_for_delivery': 'delivered'
-    }
-
-    if order.status in status_flow:
-        order.status = status_flow[order.status]
+        order.status = 'cancelled'
         order.save()
-        return Response({'status': order.status, 'message': 'Status updated'})
 
-    return Response({'error': 'Invalid status'}, status=400)
+        return Response({
+            "message": "Order cancelled and stock restored",
+            "id": order.id,
+            "status": order.status
+        }, status=status.HTTP_200_OK)
 
 
-# Add this URL to orders/urls.py
-# path('<int:order_id>/update-status/', views.update_order_status, name='update_order_status'),
+# =========================
+# 9. ADMIN - DELETE ORDER (WITH STOCK RESTORE)
+# =========================
+class AdminDeleteOrderView(GenericAPIView):
+    """Admin deletes order permanently and restores stock"""
+    permission_classes = [IsAdminUser]
+
+    def delete(self, request, pk):
+        try:
+            order = Order.objects.get(id=pk)
+
+            # Restore stock before deleting
+            for item in order.items.all():
+                product = item.product
+                product.stock += item.quantity
+                product.save()
+
+            order.delete()
+            return Response({"message": "Order deleted successfully"}, status=status.HTTP_200_OK)
+
+        except Order.DoesNotExist:
+            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+

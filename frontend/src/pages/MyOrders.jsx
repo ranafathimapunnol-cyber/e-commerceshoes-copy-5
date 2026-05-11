@@ -22,6 +22,23 @@ import {
     AlertCircle,
 } from 'lucide-react';
 
+// ✅ ADD THIS HELPER FUNCTION AT THE TOP
+const getImageUrl = (imagePath) => {
+    if (!imagePath) {
+        return 'https://via.placeholder.com/60x60?text=Product';
+    }
+    if (imagePath.startsWith('http')) {
+        return imagePath;
+    }
+    if (imagePath.startsWith('/media/')) {
+        return `http://127.0.0.1:8000${imagePath}`;
+    }
+    if (imagePath.startsWith('/')) {
+        return `http://127.0.0.1:8000${imagePath}`;
+    }
+    return `http://127.0.0.1:8000/media/${imagePath}`;
+};
+
 function MyOrders() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -298,32 +315,40 @@ function MyOrders() {
                                         </div>
                                     )}
 
-                                    {/* Order Items Preview */}
+                                    {/* Order Items Preview - ✅ FIXED IMAGE URL */}
                                     <div className="p-5">
                                         <div className="space-y-3">
                                             {order.items &&
-                                                order.items.slice(0, 2).map((item) => (
-                                                    <div key={item.id} className="flex items-center gap-4">
-                                                        <img
-                                                            src={
-                                                                item.product?.image
-                                                                    ? `http://127.0.0.1:8000${item.product.image}`
-                                                                    : '/api/placeholder/60/60'
-                                                            }
-                                                            alt={item.product?.name || 'Product'}
-                                                            className="w-14 h-14 rounded-lg object-cover bg-gray-100"
-                                                        />
-                                                        <div className="flex-1">
-                                                            <h4 className="font-medium text-gray-800">
-                                                                {item.product?.name || 'Product'}
-                                                            </h4>
-                                                            <p className="text-sm text-gray-400">Qty: {item.quantity}</p>
+                                                order.items.slice(0, 2).map((item) => {
+                                                    // ✅ Get the image path correctly
+                                                    const imagePath = item.product?.image || item.image || item.image_url;
+                                                    const imageUrl = getImageUrl(imagePath);
+
+                                                    return (
+                                                        <div key={item.id} className="flex items-center gap-4">
+                                                            <img
+                                                                src={imageUrl}
+                                                                alt={item.product?.name || 'Product'}
+                                                                className="w-14 h-14 rounded-lg object-cover bg-gray-100"
+                                                                onError={(e) => {
+                                                                    e.target.src =
+                                                                        'https://via.placeholder.com/60x60?text=Product';
+                                                                }}
+                                                            />
+                                                            <div className="flex-1">
+                                                                <h4 className="font-medium text-gray-800">
+                                                                    {item.product?.name || 'Product'}
+                                                                </h4>
+                                                                <p className="text-sm text-gray-400">
+                                                                    Qty: {item.quantity}
+                                                                </p>
+                                                            </div>
+                                                            <p className="font-semibold">
+                                                                ₹{getItemTotal(item).toLocaleString()}
+                                                            </p>
                                                         </div>
-                                                        <p className="font-semibold">
-                                                            ₹{getItemTotal(item).toLocaleString()}
-                                                        </p>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             {order.items && order.items.length > 2 && (
                                                 <p className="text-xs text-gray-400 text-center pt-2">
                                                     +{order.items.length - 2} more items
@@ -354,14 +379,15 @@ function MyOrders() {
                     getItemPrice={getItemPrice}
                     getItemTotal={getItemTotal}
                     getTrackingStatus={getTrackingStatus}
+                    getImageUrl={getImageUrl}
                 />
             )}
         </div>
     );
 }
 
-// Order Details Modal Component with Enhanced Tracking
-const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal, getTrackingStatus }) => {
+// Order Details Modal Component with Enhanced Tracking - ✅ FIXED IMAGE URL
+const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal, getTrackingStatus, getImageUrl }) => {
     const trackingSteps = [
         { key: 'pending', label: 'Order Placed', icon: Clock, date: order.created_at },
         { key: 'confirmed', label: 'Order Confirmed', icon: CheckCircle },
@@ -497,30 +523,39 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal, getTrac
                         <p className="text-sm text-gray-600">Status: {order.is_paid ? 'Paid' : 'Pending'}</p>
                     </div>
 
-                    {/* Order Items */}
+                    {/* Order Items - ✅ FIXED IMAGE URL */}
                     <div className="border-t pt-4">
                         <h3 className="font-semibold mb-3">Order Items</h3>
                         <div className="space-y-3">
                             {order.items &&
-                                order.items.map((item) => (
-                                    <div key={item.id} className="flex gap-4 py-3 border-b last:border-0">
-                                        <img
-                                            src={
-                                                item.product?.image
-                                                    ? `http://127.0.0.1:8000${item.product.image}`
-                                                    : '/api/placeholder/60/60'
-                                            }
-                                            className="w-16 h-16 rounded-lg object-cover bg-gray-100"
-                                            alt={item.product?.name}
-                                        />
-                                        <div className="flex-1">
-                                            <h4 className="font-medium">{item.product?.name || 'Product'}</h4>
-                                            <p className="text-sm text-gray-400">Quantity: {item.quantity}</p>
-                                            <p className="text-sm text-gray-400">Price: ₹{getItemPrice(item)} each</p>
+                                order.items.map((item) => {
+                                    // ✅ Get the image path correctly
+                                    const imagePath = item.product?.image || item.image || item.image_url;
+                                    const imageUrl = getImageUrl
+                                        ? getImageUrl(imagePath)
+                                        : imagePath
+                                          ? `http://127.0.0.1:8000${imagePath}`
+                                          : 'https://via.placeholder.com/60x60?text=Product';
+
+                                    return (
+                                        <div key={item.id} className="flex gap-4 py-3 border-b last:border-0">
+                                            <img
+                                                src={imageUrl}
+                                                className="w-16 h-16 rounded-lg object-cover bg-gray-100"
+                                                alt={item.product?.name}
+                                                onError={(e) => {
+                                                    e.target.src = 'https://via.placeholder.com/60x60?text=Product';
+                                                }}
+                                            />
+                                            <div className="flex-1">
+                                                <h4 className="font-medium">{item.product?.name || 'Product'}</h4>
+                                                <p className="text-sm text-gray-400">Quantity: {item.quantity}</p>
+                                                <p className="text-sm text-gray-400">Price: ₹{getItemPrice(item)} each</p>
+                                            </div>
+                                            <p className="font-semibold">₹{getItemTotal(item).toLocaleString()}</p>
                                         </div>
-                                        <p className="font-semibold">₹{getItemTotal(item).toLocaleString()}</p>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                         </div>
                     </div>
 

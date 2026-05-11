@@ -22,7 +22,7 @@ function Featured() {
             try {
                 const res = await axios.get('http://127.0.0.1:8000/api/products/'); // Fetch all products
 
-                const featuredProducts = [res.data[20], res.data[19], res.data[15]];
+                const featuredProducts = [res.data[1], res.data[2], res.data[4]];
 
                 setProducts(featuredProducts);
             } catch (err) {

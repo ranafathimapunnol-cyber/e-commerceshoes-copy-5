@@ -22,6 +22,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
@@ -46,6 +47,8 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'corsheaders',
+    'channels',
+    'notifications',  # ✅ Your notifications app
 
     'users',
     'products',
@@ -55,8 +58,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-
+    'corsheaders.middleware.CorsMiddleware',  # ✅ Should be at the top
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -137,23 +139,51 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-
+# ✅ CORS settings - ADD Socket.IO server URL
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+    "http://localhost:5173",  # Your React app (Vite default)
+    "http://localhost:3000",   # If you use Create React App
+    "http://localhost:3001",   # Admin dashboard (if separate)
+    "http://localhost:3002",   # Socket.IO server
 ]
-AUTH_USER_MODEL = 'users.User'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-CORS_ALLOW_ALL_ORIGINS = True  # (for development only)
+
+# ✅ For development only - allows all origins
+CORS_ALLOW_ALL_ORIGINS = True  # Remove in production
+
 CORS_ALLOW_HEADERS = [
     "authorization",
     "content-type",
+    "accept",
+    "origin",
+    "x-requested-with",
 ]
 
+# ✅ Allow credentials (cookies, authorization headers)
+CORS_ALLOW_CREDENTIALS = True
+
+# ✅ Custom User Model
+AUTH_USER_MODEL = 'users.User'
+
+# ✅ Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# ✅ JWT Settings
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
+}
+
+# Add Channels configuration
+ASGI_APPLICATION = 'backend.asgi.application'
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
+    },
 }

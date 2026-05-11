@@ -53,9 +53,9 @@ function PremiumBlackWhiteNavbar() {
         const updateColor = () => {
             const scrollY = window.scrollY;
 
-            if (scrollY < 735) setNavTextColor('white');
-            else if (scrollY < 2110) setNavTextColor('black');
-            else if (scrollY < 3700) setNavTextColor('white');
+            if (scrollY < 675) setNavTextColor('white');
+            else if (scrollY < 2040) setNavTextColor('black');
+            else if (scrollY < 3580) setNavTextColor('white');
             else setNavTextColor('black');
         };
 
@@ -80,7 +80,7 @@ function PremiumBlackWhiteNavbar() {
 
     const hoverColorClass = navTextColor === 'white' ? 'hover:text-gray-300' : 'hover:text-gray-700';
 
-    // ================= NAV ITEMS (FIXED - NO TRANSLATION) =================
+    // ================= NAV ITEMS =================
     const navItems = [
         { name: 'NEW ARRIVALS', route: '/new-arrivals' },
         { name: 'MEN', route: '/shop/men' },
@@ -91,23 +91,25 @@ function PremiumBlackWhiteNavbar() {
 
     return (
         <nav className="fixed top-0 left-0 w-full z-50 bg-transparent py-4">
-            <div className="max-w-7xl mx-auto px-4 flex justify-between items-center">
+            <div className="max-w-7xl mx-auto px-6 flex items-center justify-between relative">
                 {/* LOGO */}
+                <div className="flex-shrink-0 z-10">
+                    <img
+                        src={navTextColor === 'white' ? '/logo.png' : '/logo2.png'}
+                        className="h-24 object-contain cursor-pointer"
+                        alt="logo"
+                        onClick={() => navigate('/')}
+                    />
+                </div>
 
-                <img
-                    src={navTextColor === 'white' ? '/logo.png' : '/logo2.png'}
-                    className="h-28 object-contain cursor-pointer"
-                    alt="logo"
-                    onClick={() => navigate('/')}
-                />
-
-                {/* NAV ITEMS */}
-                <div className={`hidden lg:flex gap-8 text-xs font-bold tracking-widest ${textColorClass}`}>
+                {/* CENTER NAV ITEMS */}
+                <div
+                    className={`absolute left-1/2 -translate-x-1/2 hidden lg:flex gap-10 xl:gap-12 text-xs font-bold tracking-[0.2em] ${textColorClass}`}>
                     {navItems.map((item, i) => (
                         <button
                             key={i}
                             onClick={() => navigate(item.route)}
-                            className={`flex items-center gap-1 ${hoverColorClass}`}>
+                            className={`flex items-center gap-1 transition-all duration-200 ${hoverColorClass}`}>
                             {item.name}
                             <ChevronDown size={14} />
                         </button>
@@ -115,7 +117,7 @@ function PremiumBlackWhiteNavbar() {
                 </div>
 
                 {/* RIGHT SIDE */}
-                <div className={`flex items-center gap-4 ${textColorClass}`}>
+                <div className={`flex items-center gap-4 z-10 ${textColorClass}`}>
                     {/* WISHLIST */}
                     {isLoggedIn && (
                         <Link to="/wishlist" className="relative">
@@ -151,7 +153,7 @@ function PremiumBlackWhiteNavbar() {
                                 <User size={18} />
                             </Link>
 
-                            <button onClick={handleLogout} className="text-xs font-bold hover:text-red-500">
+                            <button onClick={handleLogout} className="text-xs font-bold hover:text-red-500 transition">
                                 Logout
                             </button>
                         </>

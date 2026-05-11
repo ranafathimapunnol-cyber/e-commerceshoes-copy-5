@@ -1,12 +1,57 @@
-# dependencies
-node_modules/
-
-# env
-.env
-
-# python
+# Python
+venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+db.sqlite3
+dump.rdb
 
-# media uploads
+# Node modules
+node_modules/
+package-lock.json
+
+# Media files (optional - only if you don't want to track them)
 media/
+*.jpg
+*.jpeg
+*.png
+*.mp4
+*.mp3
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Django
+*.pyc
+*.log
+migrations/_*.py
+!migrations/__init__.py
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Backend
+backend/node_modules/
+backend/__pycache__/
+backend/*/__pycache__/
+backend/dump.rdb
+
+# Socket server
+socket-server/node_modules/

@@ -1,3 +1,4 @@
+// pages/Profile.jsx - Fixed API Endpoints
 import { useEffect, useState, useRef, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
@@ -31,10 +32,7 @@ import {
     XCircle,
     Trash2,
     Plus,
-    Home,
-    Building,
-    Navigation,
-    ZoomIn,
+    AlertTriangle,
 } from 'lucide-react';
 
 function Profile() {
@@ -57,6 +55,8 @@ function Profile() {
     const [addingToCart, setAddingToCart] = useState({});
     const [showAddressForm, setShowAddressForm] = useState(false);
     const [showImageModal, setShowImageModal] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [hasPendingOrders, setHasPendingOrders] = useState(false);
     const fileInputRef = useRef(null);
 
     const [editForm, setEditForm] = useState({
@@ -66,15 +66,14 @@ function Profile() {
         bio: '',
     });
 
-    // ✅ FIXED: Use snake_case to match backend
     const [newAddress, setNewAddress] = useState({
-        full_name: '', // Changed from fullName
+        full_name: '',
         phone: '',
         address: '',
         city: '',
         state: '',
         pincode: '',
-        is_default: false, // Changed from isDefault
+        is_default: false,
     });
 
     useEffect(() => {
@@ -82,6 +81,17 @@ function Profile() {
         fetchWishlist();
         fetchAddresses();
     }, []);
+
+    // Check for pending orders
+    useEffect(() => {
+        if (orders.length > 0) {
+            const pendingStatuses = ['pending', 'processing', 'shipped', 'confirmed', 'out_for_delivery'];
+            const hasUnconfirmed = orders.some((order) => pendingStatuses.includes(order.status?.toLowerCase()));
+            setHasPendingOrders(hasUnconfirmed);
+        } else {
+            setHasPendingOrders(false);
+        }
+    }, [orders]);
 
     const fetchUserData = async () => {
         try {
@@ -91,6 +101,7 @@ function Profile() {
                 return;
             }
 
+            // Get user profile from token - use the users/me/ endpoint
             const profileRes = await axios.get('http://127.0.0.1:8000/api/users/profile/', {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -103,6 +114,7 @@ function Profile() {
                 bio: profileRes.data.bio || '',
             });
 
+            // Get orders
             const ordersRes = await axios.get('http://127.0.0.1:8000/api/orders/my-orders/', {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -122,6 +134,7 @@ function Profile() {
             const token = localStorage.getItem('access');
             if (!token) return;
 
+            // Get wishlist from localStorage first
             const localWishlist = localStorage.getItem('wishlist');
             if (localWishlist) {
                 const parsed = JSON.parse(localWishlist);
@@ -130,15 +143,7 @@ function Profile() {
                     return;
                 }
             }
-
-            try {
-                const wishlistRes = await axios.get('http://127.0.0.1:8000/api/wishlist/', {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                setWishlistItems(wishlistRes.data || []);
-            } catch {
-                setWishlistItems([]);
-            }
+            setWishlistItems([]);
         } catch (error) {
             console.error('Error fetching wishlist:', error);
             setWishlistItems([]);
@@ -160,7 +165,6 @@ function Profile() {
         }
     };
 
-    // ✅ FIXED: Add address with snake_case fields
     const addNewAddress = async () => {
         const token = localStorage.getItem('access');
         if (!token) {
@@ -169,7 +173,6 @@ function Profile() {
             return;
         }
 
-        // Validate required fields
         if (
             !newAddress.full_name ||
             !newAddress.phone ||
@@ -234,11 +237,8 @@ function Profile() {
             await axios.put(
                 `http://127.0.0.1:8000/api/users/addresses/${addressId}/set-default/`,
                 {},
-                {
-                    headers: { Authorization: `Bearer ${token}` },
-                },
+                { headers: { Authorization: `Bearer ${token}` } },
             );
-            // Update local state
             setAddresses(
                 addresses.map((addr) => ({
                     ...addr,
@@ -325,9 +325,7 @@ function Profile() {
             await axios.put(
                 'http://127.0.0.1:8000/api/users/profile/',
                 { profile_picture: null },
-                {
-                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                },
+                { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } },
             );
             setUser((prev) => ({ ...prev, profile_picture: null }));
             setSuccessMessage('Profile picture removed successfully!');
@@ -362,7 +360,64 @@ function Profile() {
             setSaveLoading(false);
         }
     };
+    // Profile.jsx - Update the handleDeleteAccount function
 
+    const handleDeleteAccount = async () => {
+        const token = localStorage.getItem('access');
+        if (!token) {
+            setErrorMessage('Please login first');
+            return;
+        }
+
+        if (hasPendingOrders) {
+            setErrorMessage(
+                '❌ Cannot delete account: You have pending/processing orders. Please complete or cancel them first.',
+            );
+            setTimeout(() => setErrorMessage(''), 5000);
+            setShowDeleteConfirm(false);
+            return;
+        }
+
+        setSaveLoading(true);
+        try {
+            // ✅ USE CORRECT ENDPOINT - 'delete-account/'
+            const response = await axios.delete('http://127.0.0.1:8000/api/users/delete-account/', {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (response.data.success || response.status === 200) {
+                // Clear all local storage
+                localStorage.removeItem('access');
+                localStorage.removeItem('refresh');
+                localStorage.removeItem('cart');
+                localStorage.removeItem('wishlist');
+                localStorage.removeItem('admin_access');
+                localStorage.removeItem('admin_refresh');
+                localStorage.removeItem('isAdmin');
+
+                setSuccessMessage('Account deleted successfully');
+                setTimeout(() => {
+                    navigate('/register');
+                }, 2000);
+            } else {
+                throw new Error(response.data.error || 'Delete failed');
+            }
+        } catch (error) {
+            console.error('Delete account error:', error);
+
+            if (error.response?.status === 400) {
+                setErrorMessage(error.response.data?.error || 'Cannot delete account with pending orders');
+            } else if (error.response?.status === 401) {
+                setErrorMessage('Session expired. Please login again.');
+            } else {
+                setErrorMessage('Failed to delete account. Please try again later.');
+            }
+            setTimeout(() => setErrorMessage(''), 5000);
+        } finally {
+            setSaveLoading(false);
+            setShowDeleteConfirm(false);
+        }
+    };
     const handleLogout = () => {
         localStorage.removeItem('access');
         localStorage.removeItem('refresh');
@@ -472,30 +527,55 @@ function Profile() {
                                 </div>
                             </div>
 
+                            {/* ✅ FIXED: My Orders button now navigates to /my-orders */}
                             <div className="p-2 space-y-1">
-                                {[
-                                    { id: 'overview', label: 'Overview', icon: User },
-                                    { id: 'orders', label: 'My Orders', icon: Package, badge: orders.length },
-                                    { id: 'wishlist', label: 'Wishlist', icon: Heart, badge: wishlistItems.length },
-                                    { id: 'addresses', label: 'Addresses', icon: MapPin, badge: addresses.length },
-                                    { id: 'settings', label: 'Settings', icon: Settings },
-                                ].map((tab) => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition ${activeTab === tab.id ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <tab.icon size={18} />
-                                            <span className="text-sm font-medium">{tab.label}</span>
-                                        </div>
-                                        {tab.badge > 0 && (
-                                            <span
-                                                className={`text-xs px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                                                {tab.badge}
-                                            </span>
-                                        )}
-                                    </button>
-                                ))}
+                                <button
+                                    onClick={() => setActiveTab('overview')}
+                                    className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition ${activeTab === 'overview' ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <User size={18} />
+                                        <span className="text-sm font-medium">Overview</span>
+                                    </div>
+                                </button>
+
+                                {/* ✅ My Orders - Navigates to separate page */}
+                                <button
+                                    onClick={() => navigate('/my-orders')}
+                                    className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition text-gray-600 hover:bg-gray-100">
+                                    <div className="flex items-center gap-3">
+                                        <Package size={18} />
+                                        <span className="text-sm font-medium">My Orders</span>
+                                    </div>
+                                    {orders.length > 0 && (
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">
+                                            {orders.length}
+                                        </span>
+                                    )}
+                                </button>
+
+                                <button
+                                    onClick={() => setActiveTab('addresses')}
+                                    className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition ${activeTab === 'addresses' ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <MapPin size={18} />
+                                        <span className="text-sm font-medium">Addresses</span>
+                                    </div>
+                                    {addresses.length > 0 && (
+                                        <span
+                                            className={`text-xs px-2 py-0.5 rounded-full ${activeTab === 'addresses' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                                            {addresses.length}
+                                        </span>
+                                    )}
+                                </button>
+
+                                <button
+                                    onClick={() => setActiveTab('settings')}
+                                    className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl transition ${activeTab === 'settings' ? 'bg-black text-white' : 'text-gray-600 hover:bg-gray-100'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <Settings size={18} />
+                                        <span className="text-sm font-medium">Settings</span>
+                                    </div>
+                                </button>
                             </div>
 
                             <div className="p-4 border-t border-gray-100">
@@ -508,149 +588,9 @@ function Profile() {
                         </div>
                     </div>
 
-                    {/* Main Content */}
-                    <div className="lg:col-span-3">
-                        {/* Addresses Tab - FIXED */}
-                        {activeTab === 'addresses' && (
-                            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-xl font-bold text-black">Saved Addresses</h3>
-                                    <button
-                                        onClick={() => setShowAddressForm(!showAddressForm)}
-                                        className="flex items-center gap-1 text-sm bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition">
-                                        <Plus size={14} /> Add New Address
-                                    </button>
-                                </div>
-
-                                {showAddressForm && (
-                                    <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                                        <h4 className="font-semibold mb-3">New Address</h4>
-                                        <div className="grid md:grid-cols-2 gap-3">
-                                            <input
-                                                type="text"
-                                                placeholder="Full Name"
-                                                value={newAddress.full_name}
-                                                onChange={(e) =>
-                                                    setNewAddress({ ...newAddress, full_name: e.target.value })
-                                                }
-                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <input
-                                                type="tel"
-                                                placeholder="Phone Number"
-                                                value={newAddress.phone}
-                                                onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
-                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Address"
-                                                value={newAddress.address}
-                                                onChange={(e) => setNewAddress({ ...newAddress, address: e.target.value })}
-                                                className="md:col-span-2 p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="City"
-                                                value={newAddress.city}
-                                                onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
-                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="State"
-                                                value={newAddress.state}
-                                                onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
-                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <input
-                                                type="text"
-                                                placeholder="Pincode"
-                                                value={newAddress.pincode}
-                                                onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })}
-                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                                            />
-                                            <label className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={newAddress.is_default}
-                                                    onChange={(e) =>
-                                                        setNewAddress({ ...newAddress, is_default: e.target.checked })
-                                                    }
-                                                    className="rounded"
-                                                />
-                                                <span className="text-sm">Set as default address</span>
-                                            </label>
-                                        </div>
-                                        <div className="flex gap-2 mt-4">
-                                            <button
-                                                onClick={addNewAddress}
-                                                className="bg-black text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition">
-                                                Save Address
-                                            </button>
-                                            <button
-                                                onClick={() => setShowAddressForm(false)}
-                                                className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition">
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="space-y-4">
-                                    {addresses.length === 0 ? (
-                                        <div className="text-center py-8">
-                                            <MapPin size={40} className="mx-auto text-gray-300 mb-2" />
-                                            <p className="text-gray-500">No saved addresses</p>
-                                        </div>
-                                    ) : (
-                                        addresses.map((address) => (
-                                            <div
-                                                key={address.id}
-                                                className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
-                                                <div className="flex justify-between items-start">
-                                                    <div className="flex-1">
-                                                        {address.is_default && (
-                                                            <span className="inline-block text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full mb-2">
-                                                                Default
-                                                            </span>
-                                                        )}
-                                                        <p className="font-semibold text-black">
-                                                            {address.full_name || user?.username}
-                                                        </p>
-                                                        <p className="text-sm text-gray-600 mt-1">{address.address}</p>
-                                                        <p className="text-sm text-gray-600">
-                                                            {address.city}, {address.state} - {address.pincode}
-                                                        </p>
-                                                        <p className="text-sm text-gray-500 mt-1">
-                                                            📞 {address.phone || user?.phone}
-                                                        </p>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        {!address.is_default && (
-                                                            <button
-                                                                onClick={() => setDefaultAddress(address.id)}
-                                                                className="text-xs text-blue-600 hover:text-blue-700">
-                                                                Set Default
-                                                            </button>
-                                                        )}
-                                                        <button
-                                                            onClick={() => deleteAddress(address.id)}
-                                                            className="text-red-500 hover:text-red-600">
-                                                            <Trash2 size={14} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Other tabs (Overview, Orders, Wishlist, Settings) remain the same */}
-                        {/* Overview Tab */}
-                        {activeTab === 'overview' && (
+                    {/* Overview Tab */}
+                    {activeTab === 'overview' && (
+                        <div className="lg:col-span-3">
                             <div className="space-y-6">
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     {[
@@ -787,126 +727,152 @@ function Profile() {
                                     )}
                                 </div>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Orders Tab */}
-                        {activeTab === 'orders' && (
+                    {/* Addresses Tab */}
+                    {activeTab === 'addresses' && (
+                        <div className="lg:col-span-3">
                             <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                                <h3 className="text-xl font-bold text-black mb-4">My Orders</h3>
-                                {orders.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <Package size={60} className="mx-auto text-gray-300 mb-4" />
-                                        <p className="text-gray-500 mb-4">You haven't placed any orders yet</p>
-                                        <Link
-                                            to="/products"
-                                            className="inline-flex items-center gap-2 bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition">
-                                            Start Shopping
-                                        </Link>
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-xl font-bold text-black">Saved Addresses</h3>
+                                    <button
+                                        onClick={() => setShowAddressForm(!showAddressForm)}
+                                        className="flex items-center gap-1 text-sm bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition">
+                                        <Plus size={14} /> Add New Address
+                                    </button>
+                                </div>
+
+                                {showAddressForm && (
+                                    <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                        <h4 className="font-semibold mb-3">New Address</h4>
+                                        <div className="grid md:grid-cols-2 gap-3">
+                                            <input
+                                                type="text"
+                                                placeholder="Full Name"
+                                                value={newAddress.full_name}
+                                                onChange={(e) =>
+                                                    setNewAddress({ ...newAddress, full_name: e.target.value })
+                                                }
+                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="tel"
+                                                placeholder="Phone Number"
+                                                value={newAddress.phone}
+                                                onChange={(e) => setNewAddress({ ...newAddress, phone: e.target.value })}
+                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Address"
+                                                value={newAddress.address}
+                                                onChange={(e) => setNewAddress({ ...newAddress, address: e.target.value })}
+                                                className="md:col-span-2 p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="City"
+                                                value={newAddress.city}
+                                                onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="State"
+                                                value={newAddress.state}
+                                                onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })}
+                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Pincode"
+                                                value={newAddress.pincode}
+                                                onChange={(e) => setNewAddress({ ...newAddress, pincode: e.target.value })}
+                                                className="p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                                            />
+                                            <label className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={newAddress.is_default}
+                                                    onChange={(e) =>
+                                                        setNewAddress({ ...newAddress, is_default: e.target.checked })
+                                                    }
+                                                    className="rounded"
+                                                />
+                                                <span className="text-sm">Set as default address</span>
+                                            </label>
+                                        </div>
+                                        <div className="flex gap-2 mt-4">
+                                            <button
+                                                onClick={addNewAddress}
+                                                className="bg-black text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-800 transition">
+                                                Save Address
+                                            </button>
+                                            <button
+                                                onClick={() => setShowAddressForm(false)}
+                                                className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition">
+                                                Cancel
+                                            </button>
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {orders.map((order) => (
+                                )}
+
+                                <div className="space-y-4">
+                                    {addresses.length === 0 ? (
+                                        <div className="text-center py-8">
+                                            <MapPin size={40} className="mx-auto text-gray-300 mb-2" />
+                                            <p className="text-gray-500">No saved addresses</p>
+                                        </div>
+                                    ) : (
+                                        addresses.map((address) => (
                                             <div
-                                                key={order.id}
+                                                key={address.id}
                                                 className="border border-gray-100 rounded-xl p-4 hover:shadow-md transition">
-                                                <div className="flex flex-wrap justify-between items-start gap-4">
-                                                    <div>
-                                                        <p className="font-bold text-black">Order #{order.id}</p>
-                                                        <p className="text-sm text-gray-400">
-                                                            {new Date(order.created_at).toLocaleDateString()}
-                                                        </p>
-                                                        <p className="text-xs text-gray-400 mt-1">
-                                                            {order.items?.length || 0} items
-                                                        </p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-xl font-bold text-black">
-                                                            ₹{parseFloat(order.total_price).toLocaleString()}
-                                                        </p>
-                                                        <span
-                                                            className={`inline-block px-2 py-1 rounded-full text-xs font-medium mt-1 ${order.status === 'delivered' ? 'bg-green-100 text-green-700' : order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : order.status === 'shipped' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                                                            {order.status?.toUpperCase()}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <button
-                                                    onClick={() => setSelectedOrder(order)}
-                                                    className="mt-3 text-sm text-gray-500 hover:text-black transition flex items-center gap-1">
-                                                    <Eye size={14} /> View Details <ChevronRight size={14} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Wishlist Tab */}
-                        {activeTab === 'wishlist' && (
-                            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                                <h3 className="text-xl font-bold text-black mb-4">My Wishlist</h3>
-                                {wishlistItems.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <Heart size={60} className="mx-auto text-gray-300 mb-4" />
-                                        <p className="text-gray-500">Your wishlist is empty</p>
-                                        <Link
-                                            to="/products"
-                                            className="inline-flex items-center gap-2 text-black underline mt-2">
-                                            Browse Products
-                                        </Link>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {wishlistItems.map((item) => (
-                                            <div
-                                                key={item.id}
-                                                className="border border-gray-100 rounded-xl p-3 hover:shadow-md transition">
-                                                <div className="relative">
-                                                    <img
-                                                        src={
-                                                            item.image
-                                                                ? `http://127.0.0.1:8000${item.image}`
-                                                                : '/placeholder.jpg'
-                                                        }
-                                                        alt={item.name}
-                                                        className="w-full h-40 object-cover rounded-lg mb-3"
-                                                    />
-                                                    <button
-                                                        onClick={() => removeFromWishlist(item.id)}
-                                                        className="absolute top-2 right-2 bg-white p-1.5 rounded-full shadow-md hover:scale-110 transition">
-                                                        <Trash2 size={14} className="text-red-500" />
-                                                    </button>
-                                                </div>
-                                                <h4 className="font-semibold text-black">{item.name}</h4>
-                                                <p className="text-sm text-gray-500">₹{item.price?.toLocaleString()}</p>
-                                                <div className="flex gap-2 mt-2">
-                                                    <button
-                                                        onClick={(e) => handleAddToCart(item, e)}
-                                                        disabled={addingToCart[item.id]}
-                                                        className="flex-1 bg-black text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition flex items-center justify-center gap-2">
-                                                        {addingToCart[item.id] ? (
-                                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                        ) : (
-                                                            <>
-                                                                <ShoppingBag size={14} /> Add to Cart
-                                                            </>
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex-1">
+                                                        {address.is_default && (
+                                                            <span className="inline-block text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full mb-2">
+                                                                Default
+                                                            </span>
                                                         )}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => navigate(`/product/${item.id}`)}
-                                                        className="flex-1 border border-gray-200 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
-                                                        View
-                                                    </button>
+                                                        <p className="font-semibold text-black">
+                                                            {address.full_name || user?.username}
+                                                        </p>
+                                                        <p className="text-sm text-gray-600 mt-1">{address.address}</p>
+                                                        <p className="text-sm text-gray-600">
+                                                            {address.city}, {address.state} - {address.pincode}
+                                                        </p>
+                                                        <p className="text-sm text-gray-500 mt-1">
+                                                            📞 {address.phone || user?.phone}
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        {!address.is_default && (
+                                                            <button
+                                                                onClick={() => setDefaultAddress(address.id)}
+                                                                className="text-xs text-blue-600 hover:text-blue-700">
+                                                                Set Default
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => deleteAddress(address.id)}
+                                                            className="text-red-500 hover:text-red-600">
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
+                                        ))
+                                    )}
+                                </div>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Settings Tab */}
-                        {activeTab === 'settings' && (
+                    {/* Settings Tab - WITH DELETE ACCOUNT BUTTON */}
+                    {activeTab === 'settings' && (
+                        <div className="lg:col-span-3">
                             <div className="bg-white rounded-2xl border border-gray-200 p-6">
                                 <div className="flex items-center justify-between mb-6">
                                     <h3 className="text-xl font-bold text-black">Account Settings</h3>
@@ -937,6 +903,7 @@ function Profile() {
                                         </div>
                                     )}
                                 </div>
+
                                 {!isEditing ? (
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
@@ -995,9 +962,35 @@ function Profile() {
                                         />
                                     </div>
                                 )}
+
+                                {/* Danger Zone - Delete Account */}
+                                <div className="mt-8 pt-6 border-t border-red-200">
+                                    <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+                                        <div className="flex flex-wrap items-center justify-between gap-4">
+                                            <div>
+                                                <p className="font-medium text-red-800">Delete Account</p>
+                                                <p className="text-sm text-red-600">
+                                                    {hasPendingOrders
+                                                        ? '❌ You have pending orders. Complete them before deleting your account.'
+                                                        : 'Permanently delete your account and all data. This action cannot be undone.'}
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowDeleteConfirm(true)}
+                                                disabled={hasPendingOrders}
+                                                className={`flex items-center gap-2 px-5 py-2 rounded-lg font-medium transition ${
+                                                    hasPendingOrders
+                                                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                        : 'bg-red-600 text-white hover:bg-red-700'
+                                                }`}>
+                                                <Trash2 size={16} /> Delete Account
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -1047,9 +1040,47 @@ function Profile() {
                 </div>
             )}
 
+            {/* Delete Account Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                    onClick={() => setShowDeleteConfirm(false)}>
+                    <div
+                        className="bg-white rounded-2xl max-w-md w-full p-6 text-center"
+                        onClick={(e) => e.stopPropagation()}>
+                        <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center mb-4">
+                            <AlertTriangle size={32} className="text-red-600" />
+                        </div>
+                        <h3 className="text-xl font-bold text-black mb-2">Delete Account?</h3>
+                        <p className="text-gray-500 text-sm mb-4">
+                            This action <span className="font-bold text-red-600">cannot be undone</span>. All your data
+                            including orders, wishlist, and addresses will be permanently deleted.
+                        </p>
+                        {hasPendingOrders && (
+                            <p className="text-sm text-red-600 bg-red-50 p-2 rounded-lg mb-4">
+                                ⚠️ You have pending orders. Please complete them before deleting your account.
+                            </p>
+                        )}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowDeleteConfirm(false)}
+                                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDeleteAccount}
+                                disabled={hasPendingOrders}
+                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition disabled:opacity-50">
+                                Yes, Delete My Account
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Order Details Modal */}
             {selectedOrder && (
-                <OrderDetailsModalWithTracking
+                <OrderDetailsModal
                     order={selectedOrder}
                     onClose={() => setSelectedOrder(null)}
                     getItemPrice={getItemPrice}
@@ -1059,152 +1090,330 @@ function Profile() {
         </div>
     );
 }
-
-// Order Details Modal Component (keep as is)
-const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTotal }) => {
-    const [currentStepIndex, setCurrentStepIndex] = useState(0);
-    const [currentProgress, setCurrentProgress] = useState(20);
-
-    const statusSteps = [
-        { key: 'pending', label: 'Order Placed', icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50', progress: 20 },
-        {
-            key: 'confirmed',
-            label: 'Order Confirmed',
-            icon: CheckCircle,
-            color: 'text-blue-600',
-            bg: 'bg-blue-50',
-            progress: 40,
-        },
-        {
-            key: 'processing',
-            label: 'Processing',
-            icon: Package,
-            color: 'text-purple-600',
-            bg: 'bg-purple-50',
-            progress: 60,
-        },
-        { key: 'shipped', label: 'Order Shipped', icon: Truck, color: 'text-indigo-600', bg: 'bg-indigo-50', progress: 80 },
-        {
-            key: 'out_for_delivery',
-            label: 'Out for Delivery',
-            icon: Truck,
-            color: 'text-teal-600',
-            bg: 'bg-teal-50',
-            progress: 90,
-        },
-        {
-            key: 'delivered',
-            label: 'Delivered',
-            icon: CheckCircle,
-            color: 'text-green-600',
-            bg: 'bg-green-50',
-            progress: 100,
-        },
-    ];
-
+/// Order Details Modal
+const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
     useEffect(() => {
-        if (order.status === 'delivered') {
-            setCurrentStepIndex(5);
-            setCurrentProgress(100);
-            return;
-        }
-        if (order.status === 'cancelled') {
-            setCurrentStepIndex(0);
-            setCurrentProgress(0);
-            return;
-        }
-        let step = 0;
-        const interval = setInterval(() => {
-            if (step < statusSteps.length - 1) {
-                step++;
-                setCurrentStepIndex(step);
-                setCurrentProgress(statusSteps[step].progress);
-            } else {
-                clearInterval(interval);
-            }
-        }, 10000);
-        return () => clearInterval(interval);
-    }, [order.status]);
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, []);
 
-    const currentStatus = statusSteps[currentStepIndex];
-    const StatusIcon = currentStatus?.icon || Clock;
-    const currentConfig = currentStatus || statusSteps[0];
+    // Define order steps based on status
+    const getOrderSteps = () => {
+        return [
+            { key: 'pending', label: 'Order Placed', icon: Clock, description: 'Your order has been received' },
+            { key: 'confirmed', label: 'Confirmed', icon: CheckCircle, description: 'Your order has been confirmed' },
+            { key: 'processing', label: 'Processing', icon: Package, description: 'Your order is being processed' },
+            { key: 'shipped', label: 'Shipped', icon: Truck, description: 'Your order has been shipped' },
+            {
+                key: 'out_for_delivery',
+                label: 'Out for Delivery',
+                icon: Truck,
+                description: 'Your order is out for delivery',
+            },
+            { key: 'delivered', label: 'Delivered', icon: CheckCircle, description: 'Your order has been delivered' },
+        ];
+    };
 
-    return (
-        <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onClick={onClose}>
+    const getCurrentStepIndex = (status) => {
+        const steps = ['pending', 'confirmed', 'processing', 'shipped', 'out_for_delivery', 'delivered'];
+        const index = steps.indexOf(status?.toLowerCase());
+
+        // If status is cancelled, return -1
+        if (status?.toLowerCase() === 'cancelled') return -1;
+
+        return index >= 0 ? index : 0;
+    };
+
+    const isStepCompleted = (stepIndex, currentIndex) => {
+        return stepIndex <= currentIndex;
+    };
+
+    const getStatusDisplay = (status) => {
+        switch (status?.toLowerCase()) {
+            case 'out_for_delivery':
+                return 'Out for Delivery';
+            default:
+                return status?.toUpperCase() || 'PENDING';
+        }
+    };
+
+    const currentStepIndex = getCurrentStepIndex(order.status);
+    const steps = getOrderSteps();
+
+    // If order is cancelled, show cancelled message
+    if (order.status?.toLowerCase() === 'cancelled') {
+        return (
             <div
-                className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
-                onClick={(e) => e.stopPropagation()}>
-                <div className="sticky top-0 bg-white border-b border-gray-200 p-5 flex justify-between items-center">
-                    <h2 className="text-xl font-bold">Order Details #{order.id}</h2>
-                    <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg transition">
-                        ✕
-                    </button>
-                </div>
-                <div className="p-5 space-y-6">
-                    <div className={`${currentConfig.bg} rounded-xl p-4 transition-all duration-500`}>
-                        <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                                <div className="animate-bounce-in">
-                                    <StatusIcon size={24} className={currentConfig.color} />
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                onClick={onClose}>
+                <div
+                    className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+                    onClick={(e) => e.stopPropagation()}>
+                    {/* Header */}
+                    <div className="sticky top-0 bg-white border-b border-gray-200 p-5 flex justify-between items-center rounded-t-2xl z-20 relative">
+                        <div>
+                            <h2 className="text-xl font-bold text-black">Order Details</h2>
+                            <p className="text-sm text-gray-500">Order #{order.id}</p>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition">
+                            <X size={18} className="text-gray-500" />
+                        </button>
+                    </div>
+
+                    <div className="p-6 space-y-6">
+                        {/* Cancelled Status */}
+                        <div className="flex items-center justify-center p-6 bg-red-50 rounded-xl border border-red-200">
+                            <XCircle size={48} className="text-red-500 mr-3" />
+                            <div>
+                                <h3 className="text-lg font-bold text-red-700">Order Cancelled</h3>
+                                <p className="text-sm text-red-600">This order has been cancelled</p>
+                            </div>
+                        </div>
+
+                        {/* Order Date */}
+                        <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
+                            <div>
+                                <p className="text-xs text-gray-500">Order Date</p>
+                                <p className="text-sm font-medium text-gray-800">
+                                    {new Date(order.created_at).toLocaleDateString('en-IN', {
+                                        day: 'numeric',
+                                        month: 'long',
+                                        year: 'numeric',
+                                    })}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs text-gray-500">Payment Status</p>
+                                <span
+                                    className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${order.is_paid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                    {order.is_paid ? 'Paid' : 'Pending'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Order Items */}
+                        <div>
+                            <h3 className="font-semibold text-black mb-3 flex items-center gap-2">
+                                <Package size={16} /> Order Items
+                            </h3>
+                            <div className="space-y-3">
+                                {order.items?.map((item, idx) => (
+                                    <div key={idx} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
+                                        <img
+                                            src={
+                                                item.product?.image
+                                                    ? `http://127.0.0.1:8000${item.product.image}`
+                                                    : 'https://placehold.co/60x60?text=Product'
+                                            }
+                                            alt={item.product?.name}
+                                            className="w-14 h-14 object-cover rounded-lg bg-gray-100"
+                                            onError={(e) => (e.target.src = 'https://placehold.co/60x60?text=Product')}
+                                        />
+                                        <div className="flex-1">
+                                            <p className="font-medium text-black">{item.product?.name}</p>
+                                            <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                                            <p className="text-xs text-gray-400">
+                                                ₹{getItemPrice(item).toLocaleString()} each
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-semibold text-black">
+                                                ₹{getItemTotal(item).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Price Summary */}
+                        <div className="bg-gray-50 rounded-xl p-4">
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Subtotal</span>
+                                    <span className="text-gray-700">₹{parseFloat(order.total_price).toLocaleString()}</span>
                                 </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Shipping</span>
+                                    <span className="text-green-600">FREE</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Tax (5%)</span>
+                                    <span className="text-gray-700">
+                                        ₹{Math.round(parseFloat(order.total_price) * 0.05).toLocaleString()}
+                                    </span>
+                                </div>
+                                <div className="border-t border-gray-200 pt-2 mt-2">
+                                    <div className="flex justify-between font-bold">
+                                        <span className="text-black">Total</span>
+                                        <span className="text-black text-lg">
+                                            ₹{parseFloat(order.total_price).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Shipping Address */}
+                        {order.shipping_address && (
+                            <div className="bg-gray-50 rounded-xl p-4">
+                                <p className="font-medium text-black mb-2 flex items-center gap-2">
+                                    <MapPin size={14} /> Shipping Address
+                                </p>
+                                <p className="text-sm text-gray-600">{order.shipping_address}</p>
+                            </div>
+                        )}
+
+                        {/* Payment Information */}
+                        <div className="bg-gray-50 rounded-xl p-4">
+                            <p className="font-medium text-black mb-2 flex items-center gap-2">
+                                <CreditCard size={14} /> Payment Information
+                            </p>
+                            <div className="flex justify-between items-center">
                                 <div>
-                                    <p className="text-sm text-gray-500">Current Status</p>
-                                    <p className={`font-semibold ${currentConfig.color} transition-all duration-300`}>
-                                        {currentConfig.label}
+                                    <p className="text-xs text-gray-500">Payment Method</p>
+                                    <p className="text-sm text-gray-700">
+                                        {order.payment_method === 'cod'
+                                            ? 'Cash on Delivery'
+                                            : order.payment_method?.toUpperCase()}
                                     </p>
                                 </div>
                             </div>
-                            <div className="text-right">
-                                <p className="text-sm text-gray-500">Delivery Progress</p>
-                                <p className="font-bold text-black animate-pulse">{currentProgress}%</p>
-                            </div>
-                        </div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div
-                                className="h-full bg-black rounded-full transition-all duration-700 ease-out"
-                                style={{ width: `${currentProgress}%` }}
-                            />
                         </div>
                     </div>
-                    <div className="bg-black text-white rounded-xl p-3 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-green-400 rounded-full animate-ping" />
-                            <span className="text-sm">Live Tracking</span>
-                        </div>
-                        <span className="text-xs text-gray-300 animate-pulse">{currentConfig.label}</span>
+
+                    {/* Footer Buttons */}
+                    <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex gap-3 rounded-b-2xl z-20 relative">
+                        <button
+                            onClick={onClose}
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+                            Close
+                        </button>
+                        <Link
+                            to={`/order/${order.id}`}
+                            className="flex-1 px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition text-center">
+                            View Full Details
+                        </Link>
                     </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={onClose}>
+            <div
+                className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+                onClick={(e) => e.stopPropagation()}>
+                {/* Header */}
+                <div className="sticky top-0 bg-white border-b border-gray-200 p-5 flex justify-between items-center rounded-t-2xl z-20 relative">
                     <div>
-                        <h3 className="font-semibold mb-4">Order Timeline</h3>
+                        <h2 className="text-xl font-bold text-black">Order Details</h2>
+                        <p className="text-sm text-gray-500">Order #{order.id}</p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition">
+                        <X size={18} className="text-gray-500" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-6">
+                    {/* Order Info - Date and Order ID */}
+                    <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl">
+                        <div>
+                            <p className="text-xs text-gray-500">Order Date</p>
+                            <p className="text-sm font-medium text-gray-800">
+                                {new Date(order.created_at).toLocaleDateString('en-IN', {
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric',
+                                })}
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-xs text-gray-500">Current Status</p>
+                            <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                                {getStatusDisplay(order.status)}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Order Tracker/Timeline */}
+                    <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-6 border border-gray-100">
+                        <h3 className="font-semibold text-black mb-6 flex items-center gap-2">
+                            <Clock size={16} /> Order Timeline
+                        </h3>
                         <div className="relative">
-                            <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-gray-200" />
-                            <div className="space-y-6 relative">
-                                {statusSteps.map((step, idx) => {
-                                    const isCompleted = idx <= currentStepIndex;
-                                    const isCurrent = idx === currentStepIndex;
+                            {/* Steps */}
+                            <div className="space-y-0">
+                                {steps.map((step, index) => {
                                     const StepIcon = step.icon;
+                                    const isCompleted = isStepCompleted(index, currentStepIndex);
+                                    const isCurrent = index === currentStepIndex;
+
                                     return (
-                                        <div key={step.key} className="flex items-start gap-4 relative">
-                                            <div
-                                                className={`z-10 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500 ${isCompleted ? 'bg-green-500 text-white scale-110' : isCurrent ? 'bg-black text-white ring-4 ring-black/20 scale-125' : 'bg-gray-200 text-gray-400'}`}>
-                                                {isCompleted ? (
-                                                    <CheckCircle size={16} className="animate-scale-in" />
-                                                ) : (
-                                                    <StepIcon size={16} />
-                                                )}
+                                        <div key={step.key} className="relative flex gap-4 pb-8 last:pb-0">
+                                            {/* Icon Circle */}
+                                            <div className="relative z-10">
+                                                <div
+                                                    className={`
+                                                    w-10 h-10 rounded-full flex items-center justify-center
+                                                    transition-all duration-300
+                                                    ${
+                                                        isCompleted
+                                                            ? 'bg-green-500 shadow-lg shadow-green-200'
+                                                            : isCurrent
+                                                              ? 'bg-blue-500 shadow-lg shadow-blue-200 ring-4 ring-blue-100'
+                                                              : 'bg-gray-300'
+                                                    }
+                                                `}>
+                                                    <StepIcon size={18} className="text-white" />
+                                                </div>
                                             </div>
-                                            <div className="flex-1 pb-4">
+
+                                            {/* Content */}
+                                            <div className="flex-1 pt-1">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <h4
+                                                        className={`
+                                                        font-semibold
+                                                        ${isCompleted || isCurrent ? 'text-gray-900' : 'text-gray-400'}
+                                                    `}>
+                                                        {step.label}
+                                                    </h4>
+                                                    {isCurrent && (
+                                                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                                                            Current
+                                                        </span>
+                                                    )}
+                                                    {isCompleted && !isCurrent && (
+                                                        <CheckCircle size={14} className="text-green-500" />
+                                                    )}
+                                                </div>
                                                 <p
-                                                    className={`font-medium transition-all duration-300 ${isCompleted ? 'text-gray-800' : 'text-gray-400'}`}>
-                                                    {step.label}
+                                                    className={`text-sm mt-1 ${isCompleted || isCurrent ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                    {step.description}
                                                 </p>
                                                 {isCurrent && (
-                                                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1 animate-fade-in">
-                                                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-                                                        Current Status
-                                                    </p>
+                                                    <div className="mt-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className="h-full bg-blue-500 rounded-full animate-pulse"
+                                                                    style={{ width: '100%' }}></div>
+                                                            </div>
+                                                            <span className="text-xs text-blue-600 font-medium">
+                                                                In Progress
+                                                            </span>
+                                                        </div>
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -1213,10 +1422,111 @@ const OrderDetailsModalWithTracking = ({ order, onClose, getItemPrice, getItemTo
                             </div>
                         </div>
                     </div>
+
+                    {/* Order Items */}
+                    <div>
+                        <h3 className="font-semibold text-black mb-3 flex items-center gap-2">
+                            <Package size={16} /> Order Items
+                        </h3>
+                        <div className="space-y-3">
+                            {order.items?.map((item, idx) => (
+                                <div key={idx} className="flex gap-3 pb-3 border-b border-gray-100 last:border-0">
+                                    <img
+                                        src={
+                                            item.product?.image
+                                                ? `http://127.0.0.1:8000${item.product.image}`
+                                                : 'https://placehold.co/60x60?text=Product'
+                                        }
+                                        alt={item.product?.name}
+                                        className="w-14 h-14 object-cover rounded-lg bg-gray-100"
+                                        onError={(e) => (e.target.src = 'https://placehold.co/60x60?text=Product')}
+                                    />
+                                    <div className="flex-1">
+                                        <p className="font-medium text-black">{item.product?.name}</p>
+                                        <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                                        <p className="text-xs text-gray-400">₹{getItemPrice(item).toLocaleString()} each</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-semibold text-black">₹{getItemTotal(item).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Price Summary */}
+                    <div className="bg-gray-50 rounded-xl p-4">
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-500">Subtotal</span>
+                                <span className="text-gray-700">₹{parseFloat(order.total_price).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-500">Shipping</span>
+                                <span className="text-green-600">FREE</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-gray-500">Tax (5%)</span>
+                                <span className="text-gray-700">
+                                    ₹{Math.round(parseFloat(order.total_price) * 0.05).toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="border-t border-gray-200 pt-2 mt-2">
+                                <div className="flex justify-between font-bold">
+                                    <span className="text-black">Total</span>
+                                    <span className="text-black text-lg">
+                                        ₹{parseFloat(order.total_price).toLocaleString()}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Shipping Address */}
+                    {order.shipping_address && (
+                        <div className="bg-gray-50 rounded-xl p-4">
+                            <p className="font-medium text-black mb-2 flex items-center gap-2">
+                                <MapPin size={14} /> Shipping Address
+                            </p>
+                            <p className="text-sm text-gray-600">{order.shipping_address}</p>
+                        </div>
+                    )}
+
+                    {/* Payment Information */}
+                    <div className="bg-gray-50 rounded-xl p-4">
+                        <p className="font-medium text-black mb-2 flex items-center gap-2">
+                            <CreditCard size={14} /> Payment Information
+                        </p>
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <p className="text-xs text-gray-500">Payment Method</p>
+                                <p className="text-sm text-gray-700">
+                                    {order.payment_method === 'cod'
+                                        ? 'Cash on Delivery'
+                                        : order.payment_method?.toUpperCase()}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xs text-gray-500">Payment Status</p>
+                                <span
+                                    className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${order.is_paid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                    {order.is_paid ? 'Paid' : 'Pending'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex gap-3 rounded-b-2xl z-20 relative">
+                    <button
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2 border bg-black text-white border-gray-300 rounded-lg text-sm font-medium hover:bg-black/80 transition">
+                        Close
+                    </button>
                 </div>
             </div>
         </div>
     );
 };
-
 export default Profile;

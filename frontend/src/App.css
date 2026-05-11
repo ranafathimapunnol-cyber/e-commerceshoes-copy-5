@@ -1,121 +1,157 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
+/* App.css - Clean version with Inter font */
 
-  &:hover {
+/* Import Inter Font - Only once at the top */
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+
+/* App.css - Poppins Font */
+/* App.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: 'ss03', 'cv01', 'cv11';
+}
+
+/* Your existing styles continue below... */
+
+/* Your existing styles continue below... */
+
+/* Your existing styles below */
+.counter {
+    font-size: 16px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    color: var(--accent);
+    background: var(--accent-bg);
+    border: 2px solid transparent;
+    transition: border-color 0.3s;
+    margin-bottom: 24px;
+}
+
+.counter:hover {
     border-color: var(--accent-border);
-  }
-  &:focus-visible {
+}
+
+.counter:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-  }
 }
 
 .hero {
-  position: relative;
+    position: relative;
+}
 
-  .base,
-  .framework,
-  .vite {
+.hero .base,
+.hero .framework,
+.hero .vite {
     inset-inline: 0;
     margin: 0 auto;
-  }
+}
 
-  .base {
+.hero .base {
     width: 170px;
     position: relative;
     z-index: 0;
-  }
+}
 
-  .framework,
-  .vite {
+.hero .framework,
+.hero .vite {
     position: absolute;
-  }
+}
 
-  .framework {
+.hero .framework {
     z-index: 1;
     top: 34px;
     height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
+    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg) scale(1.4);
+}
 
-  .vite {
+.hero .vite {
     z-index: 0;
     top: 107px;
     height: 26px;
     width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
+    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg) scale(0.8);
 }
 
 #center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    place-content: center;
+    place-items: center;
+    flex-grow: 1;
+}
 
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
+@media (max-width: 1024px) {
+    #center {
+        padding: 32px 20px 24px;
+        gap: 18px;
+    }
 }
 
 #next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
+    display: flex;
+    border-top: 1px solid var(--border);
+    text-align: left;
+}
 
-  & > div {
+#next-steps > div {
     flex: 1 1 0;
     padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
+}
 
-  .icon {
+@media (max-width: 1024px) {
+    #next-steps > div {
+        padding: 24px 20px;
+    }
+}
+
+#next-steps .icon {
     margin-bottom: 16px;
     width: 22px;
     height: 22px;
-  }
+}
 
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
+@media (max-width: 1024px) {
+    #next-steps {
+        flex-direction: column;
+        text-align: center;
+    }
 }
 
 #docs {
-  border-right: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+}
 
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
+@media (max-width: 1024px) {
+    #docs {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
 }
 
 #next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
+    list-style: none;
+    padding: 0;
+    display: flex;
+    gap: 8px;
+    margin: 32px 0 0;
+}
 
-  .logo {
+#next-steps ul .logo {
     height: 18px;
-  }
+}
 
-  a {
+#next-steps ul a {
     color: var(--text-h);
     font-size: 16px;
     border-radius: 6px;
@@ -126,59 +162,72 @@
     gap: 8px;
     text-decoration: none;
     transition: box-shadow 0.3s;
+}
 
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
+#next-steps ul a:hover {
+    box-shadow: var(--shadow);
+}
 
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
+#next-steps ul a .button-icon {
+    height: 18px;
+    width: 18px;
+}
 
-    li {
-      flex: 1 1 calc(50% - 8px);
+@media (max-width: 1024px) {
+    #next-steps ul {
+        margin-top: 20px;
+        flex-wrap: wrap;
+        justify-content: center;
     }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
+    
+    #next-steps ul li {
+        flex: 1 1 calc(50% - 8px);
     }
-  }
+    
+    #next-steps ul a {
+        width: 100%;
+        justify-content: center;
+        box-sizing: border-box;
+    }
 }
 
 #spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
+    height: 88px;
+    border-top: 1px solid var(--border);
+}
+
+@media (max-width: 1024px) {
+    #spacer {
+        height: 48px;
+    }
 }
 
 .ticks {
-  position: relative;
-  width: 100%;
+    position: relative;
+    width: 100%;
+}
 
-  &::before,
-  &::after {
+.ticks::before,
+.ticks::after {
     content: '';
     position: absolute;
     top: -4.5px;
     border: 5px solid transparent;
-  }
+}
 
-  &::before {
+.ticks::before {
     left: 0;
     border-left-color: var(--border);
-  }
-  &::after {
+}
+
+.ticks::after {
     right: 0;
     border-right-color: var(--border);
-  }
+}
+
+/* Sidebar font improvements - Add this at the bottom */
+.backdrop-blur-xl,
+.bg-white\/10 {
+    font-weight: 500;
+    letter-spacing: -0.01em;
 }

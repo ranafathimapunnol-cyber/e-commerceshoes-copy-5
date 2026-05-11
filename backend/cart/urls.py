@@ -1,14 +1,15 @@
+# cart/urls.py - UPDATED FOR GENERIC VIEWS
 from django.urls import path
 from .views import (
-    get_cart,
-    add_to_cart,
-    update_cart,
-    remove_item,
+    GetCartView,
+    AddToCartView,
+    UpdateCartItemView,
+    RemoveCartItemView,
 )
 
 urlpatterns = [
-    path('', get_cart),
-    path('add/', add_to_cart),
-    path('update/', update_cart),
-    path('remove/<int:pk>/', remove_item),
+    path('', GetCartView.as_view(), name='get-cart'),
+    path('add/', AddToCartView.as_view(), name='add-to-cart'),
+    path('update/', UpdateCartItemView.as_view(), name='update-cart'),
+    path('remove/<int:pk>/', RemoveCartItemView.as_view(), name='remove-item'),
 ]

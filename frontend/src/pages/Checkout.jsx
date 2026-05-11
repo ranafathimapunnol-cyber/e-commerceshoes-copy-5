@@ -1,4 +1,4 @@
-// Checkout.jsx
+// Checkout.jsx - Fixed for both Buy Now and Regular Cart Checkout (No Socket Errors)
 import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -13,17 +13,38 @@ import {
     Wallet,
     Smartphone,
     Clock,
-    MapPin,
     Home,
     CheckCircle,
+    Zap,
+    ShoppingBag,
 } from 'lucide-react';
 
 import { CartContext } from '../context/CartContext';
+import { showSuccess, showError, showWarning } from '../utils/toast';
 
 function Checkout() {
     const navigate = useNavigate();
-    const { cart, clearCart, removeItem } = useContext(CartContext) || {};
-    const items = cart?.items || [];
+    const { cart, clearBuyNowItems, hasBuyNowItems, getBuyNowItems, getRegularItems, clearCart } = useContext(CartContext);
+
+    // ✅ Check if we're in Buy Now mode
+    const isBuyNow = hasBuyNowItems ? hasBuyNowItems() : false;
+
+    // ✅ Get Buy Now items
+    const buyNowItems = getBuyNowItems ? getBuyNowItems() : [];
+
+    // ✅ Get regular cart items (non-buy-now) - FIXED for cart checkout
+    const regularItems = getRegularItems ? getRegularItems() : cart?.items || [];
+
+    // ✅ For checkout: Buy Now items OR Regular items (not both)
+    const items = isBuyNow ? buyNowItems : regularItems;
+
+    // Debug logging
+    console.log('=== CHECKOUT DEBUG ===');
+    console.log('Is Buy Now mode:', isBuyNow);
+    console.log('Buy Now items:', buyNowItems);
+    console.log('Regular cart items (for cart checkout):', regularItems);
+    console.log('Items being checked out:', items);
+    console.log('Total items in checkout:', items.length);
 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -47,20 +68,50 @@ function Checkout() {
 
     const [errors, setErrors] = useState({});
 
-    // =========================
-    // FETCH USER PROFILE & ADDRESSES
-    // =========================
+    // Helper function to get correct image URL - FIXED
+    const getImageUrl = (item) => {
+        // Try different possible image fields
+        const imagePath = item.product_image || item.image || item.image_url || '';
+
+        if (!imagePath) {
+            return 'https://via.placeholder.com/60x60?text=Product';
+        }
+
+        if (imagePath.startsWith('http')) {
+            return imagePath;
+        }
+
+        if (imagePath.startsWith('/media/')) {
+            return `http://127.0.0.1:8000${imagePath}`;
+        }
+
+        if (imagePath.startsWith('/')) {
+            return `http://127.0.0.1:8000${imagePath}`;
+        }
+
+        return `http://127.0.0.1:8000/media/${imagePath}`;
+    };
+
+    // Show warning if there are multiple items in Buy Now mode
+    if (isBuyNow && items.length > 1) {
+        console.warn('Multiple items in Buy Now checkout!', items);
+    }
+
+    // Fetch user profile and addresses
     useEffect(() => {
         const fetchUserData = async () => {
             const token = localStorage.getItem('access');
             if (!token) {
                 setLoadingAddress(false);
+                if (items.length === 0) {
+                    showWarning('Please login to continue');
+                    navigate('/login');
+                }
                 return;
             }
 
             setLoadingAddress(true);
             try {
-                // Fetch user profile
                 const profileRes = await axios.get('http://127.0.0.1:8000/api/users/profile/', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
@@ -73,7 +124,6 @@ function Checkout() {
                     phone: userProfile.phone || '',
                 }));
 
-                // Fetch saved addresses from backend
                 const addressRes = await axios.get('http://127.0.0.1:8000/api/users/addresses/', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
@@ -81,7 +131,6 @@ function Checkout() {
                 const addresses = addressRes.data || [];
                 setSavedAddresses(addresses);
 
-                // Find and auto-fill default address
                 const defaultAddress = addresses.find((addr) => addr.is_default === true);
                 if (defaultAddress) {
                     setSelectedAddressId(defaultAddress.id);
@@ -95,7 +144,6 @@ function Checkout() {
                         pincode: defaultAddress.pincode || '',
                     }));
                 } else if (addresses.length > 0) {
-                    // If no default, use first address
                     const firstAddress = addresses[0];
                     setSelectedAddressId(firstAddress.id);
                     setFormData((prev) => ({
@@ -110,28 +158,31 @@ function Checkout() {
                 }
             } catch (error) {
                 console.error('Error fetching user data:', error);
+                showError('Could not load user data');
             } finally {
                 setLoadingAddress(false);
             }
         };
 
         fetchUserData();
-    }, []);
+    }, [navigate, items.length]);
 
-    // =========================
-    // REDIRECT IF CART EMPTY
-    // =========================
+    // Redirect if no items
     useEffect(() => {
-        if (!orderPlaced && items.length === 0 && !loadingAddress) {
-            navigate('/cart');
+        if (!orderPlaced && !loadingAddress) {
+            if (isBuyNow && items.length === 0) {
+                showWarning('No Buy Now item found');
+                navigate('/cart');
+            } else if (!isBuyNow && items.length === 0) {
+                showWarning('Your cart is empty');
+                navigate('/cart');
+            }
         }
-    }, [items, navigate, orderPlaced, loadingAddress]);
+    }, [items, navigate, orderPlaced, loadingAddress, isBuyNow]);
 
-    // =========================
-    // TOTALS
-    // =========================
+    // Calculate totals
     const subtotal = items.reduce((acc, item) => {
-        return acc + (item.product_price || 0) * item.quantity;
+        return acc + (Number(item.product_price) || 0) * (item.quantity || 1);
     }, 0);
 
     const shipping = subtotal > 5000 ? 0 : 199;
@@ -139,9 +190,7 @@ function Checkout() {
     const discount = subtotal > 10000 ? 1000 : subtotal > 5000 ? 500 : 0;
     const total = subtotal + shipping + tax - discount;
 
-    // =========================
-    // VALIDATION
-    // =========================
+    // Validation
     const validateField = (name, value) => {
         switch (name) {
             case 'fullName':
@@ -157,7 +206,7 @@ function Checkout() {
             case 'state':
                 return !value ? 'State required' : '';
             case 'pincode':
-                return !/^\d{6}$/.test(value) ? 'Invalid pincode' : '';
+                return !/^\d{6}$/.test(value) ? 'Invalid pincode (6 digits)' : '';
             default:
                 return '';
         }
@@ -168,7 +217,6 @@ function Checkout() {
         setFormData((prev) => ({ ...prev, [name]: value }));
         setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
 
-        // If user manually edits, clear selected address
         if (name === 'address' || name === 'city' || name === 'state' || name === 'pincode') {
             setSelectedAddressId(null);
         }
@@ -187,6 +235,7 @@ function Checkout() {
                 state: selected.state || '',
                 pincode: selected.pincode || '',
             }));
+            showSuccess('Address loaded');
         }
     };
 
@@ -198,7 +247,12 @@ function Checkout() {
             if (error) newErrors[field] = error;
         });
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+
+        if (Object.keys(newErrors).length > 0) {
+            showError('Please fix the errors before continuing');
+            return false;
+        }
+        return true;
     };
 
     const handleNext = () => {
@@ -213,15 +267,25 @@ function Checkout() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    const clearCartItems = () => {
-        if (clearCart) clearCart();
-        else if (removeItem) items.forEach((item) => removeItem(item.id));
-        else localStorage.removeItem('cart');
+    // Clear items after order
+    const clearAfterOrder = () => {
+        if (isBuyNow) {
+            // ✅ Only clear Buy Now items - keep regular cart items
+            if (clearBuyNowItems) {
+                clearBuyNowItems();
+                console.log('Cleared Buy Now items only, regular cart preserved');
+                showSuccess('Order placed! Your cart items are saved.');
+            }
+        } else {
+            // ✅ Regular checkout - clear everything
+            if (clearCart) {
+                clearCart();
+                console.log('Cleared entire cart');
+            }
+        }
     };
 
-    // =========================
-    // PLACE ORDER
-    // =========================
+    // Place order (NO SOCKET ERRORS)
     const handlePlaceOrder = async () => {
         if (!validateStep()) {
             setStep(1);
@@ -230,8 +294,13 @@ function Checkout() {
 
         const token = localStorage.getItem('access');
         if (!token) {
-            alert('Please login first');
+            showError('Please login to continue');
             navigate('/login');
+            return;
+        }
+
+        if (items.length === 0) {
+            showError('No items to order');
             return;
         }
 
@@ -239,19 +308,36 @@ function Checkout() {
         setErrorMessage('');
 
         try {
+            // Prepare items with images for order confirmation
             const orderItems = items.map((item) => ({
-                product: item.product || item.product_id,
-                quantity: item.quantity,
+                product: item.product_id || item.id,
+                quantity: item.quantity || 1,
+                price: item.product_price,
+                name: item.product_name,
+                image: getImageUrl(item), // ✅ FIXED: Store image URL for order confirmation
             }));
 
             const fullAddress = `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`;
 
             const orderData = {
                 items: orderItems,
+                subtotal: subtotal,
+                shipping: shipping,
+                tax: tax,
+                discount: discount,
                 total_price: total,
                 shipping_address: fullAddress,
                 payment_method: formData.paymentMethod,
+                is_buy_now: isBuyNow,
+                customer_details: {
+                    name: formData.fullName,
+                    email: formData.email,
+                    phone: formData.phone,
+                },
             };
+
+            console.log('Placing order - Items with images:', orderItems);
+            console.log('Is Buy Now mode:', isBuyNow);
 
             const response = await axios.post('http://127.0.0.1:8000/api/orders/create/', orderData, {
                 headers: {
@@ -260,15 +346,23 @@ function Checkout() {
                 },
             });
 
+            // In handlePlaceOrder function, when setting orderDetails:
             setOrderDetails({
-                orderId: response.data.order_id || Math.floor(Math.random() * 1000000),
+                orderId: response.data.order_id || `ORD${Math.floor(Math.random() * 1000000)}`,
                 total: total,
-                items: items.length,
+                items: items.map((item) => ({
+                    // ✅ Make sure items are passed here
+                    ...item,
+                    image_url: getImageUrl(item), // ✅ Add image_url
+                    product_name: item.product_name,
+                    product_price: item.product_price,
+                    quantity: item.quantity,
+                })),
                 fullName: formData.fullName,
                 email: formData.email,
                 phone: formData.phone,
                 address: fullAddress,
-                paymentMethod: formData.paymentMethod,
+                paymentMethod: formData.paymentMethod === 'cod' ? 'Cash on Delivery' : formData.paymentMethod.toUpperCase(),
                 estimatedDelivery: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
                     day: 'numeric',
                     month: 'long',
@@ -278,36 +372,31 @@ function Checkout() {
                 shipping: shipping,
                 tax: tax,
                 discount: discount,
+                isBuyNow: isBuyNow,
             });
 
-            clearCartItems();
+            clearAfterOrder();
             setOrderPlaced(true);
         } catch (error) {
-            console.log(error);
-            setErrorMessage(error.response?.data?.message || 'Order failed');
+            console.error('Order error:', error);
+            const errorMsg =
+                error.response?.data?.message || error.response?.data?.error || 'Order failed. Please try again.';
+            setErrorMessage(errorMsg);
+            showError(errorMsg);
         } finally {
             setLoading(false);
         }
     };
 
-    // =========================
-    // CLOSE HANDLERS
-    // =========================
     const handleClosePopup = () => {
         setOrderPlaced(false);
         navigate('/products');
     };
 
-    // =========================
-    // SHOW ORDER CONFIRMATION
-    // =========================
     if (orderPlaced && orderDetails) {
-        return <OrderConfirmation orderDetails={orderDetails} items={items} onClose={handleClosePopup} />;
+        return <OrderConfirmation orderDetails={orderDetails} items={orderDetails.items} onClose={handleClosePopup} />;
     }
 
-    // =========================
-    // INPUT FIELD COMPONENT
-    // =========================
     const InputField = ({ label, name, type = 'text', placeholder, value }) => (
         <div>
             <label className="block text-sm font-medium mb-1">{label} *</label>
@@ -318,26 +407,81 @@ function Checkout() {
                 onChange={handleChange}
                 placeholder={placeholder}
                 className={`w-full px-4 py-3 rounded-xl border ${
-                    errors[name] ? 'border-red-500 bg-red-50' : 'border-gray-200'
-                } focus:outline-none focus:ring-2 focus:ring-black`}
+                    errors[name] ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-black'
+                } focus:outline-none focus:ring-2 focus:ring-black transition`}
             />
             {errors[name] && <p className="text-xs text-red-500 mt-1">{errors[name]}</p>}
         </div>
     );
 
-    // =========================
-    // CHECKOUT FORM
-    // =========================
+    if (loadingAddress) {
+        return (
+            <div className="min-h-screen bg-white flex items-center justify-center pt-28">
+                <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-gray-200 border-t-black rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading your information...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // No items message for Buy Now
+    if (isBuyNow && items.length === 0) {
+        return (
+            <div className="min-h-screen bg-white flex items-center justify-center pt-28">
+                <div className="text-center">
+                    <div className="w-20 h-20 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <ShoppingBag size={40} className="text-gray-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold mb-2">No Buy Now Items</h2>
+                    <p className="text-gray-500 mb-6">You don't have any Buy Now items to checkout.</p>
+                    <button
+                        onClick={() => navigate('/cart')}
+                        className="bg-black text-white px-6 py-3 rounded-full hover:bg-gray-800">
+                        Go to Cart
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // No items message for regular checkout
+    if (!isBuyNow && items.length === 0) {
+        return (
+            <div className="min-h-screen bg-white flex items-center justify-center pt-28">
+                <div className="text-center">
+                    <div className="w-20 h-20 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                        <ShoppingBag size={40} className="text-gray-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold mb-2">Your Cart is Empty</h2>
+                    <p className="text-gray-500 mb-6">Add some items to your cart before checking out.</p>
+                    <button
+                        onClick={() => navigate('/products')}
+                        className="bg-black text-white px-6 py-3 rounded-full hover:bg-gray-800">
+                        Start Shopping
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-white pt-28 pb-20 px-4 md:px-8">
             <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-10">
                     <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-full mb-4">
-                        <Lock size={14} />
-                        <span className="text-xs font-medium">SECURE CHECKOUT</span>
+                        {isBuyNow ? <Zap size={14} className="text-yellow-500" /> : <Lock size={14} />}
+                        <span className="text-xs font-medium">{isBuyNow ? 'BUY NOW CHECKOUT' : 'SECURE CHECKOUT'}</span>
                     </div>
-                    <h1 className="text-5xl font-bold tracking-tight">CHECKOUT</h1>
-                    <p className="text-gray-400 mt-2">Complete your order securely</p>
+                    <h1 className="text-5xl md:text-6xl font-bold tracking-tight">CHECKOUT</h1>
+                    {isBuyNow ? (
+                        <p className="text-blue-500 mt-2 flex items-center justify-center gap-1">
+                            <Zap size={14} /> You are purchasing {items.length} item(s) now. Your cart items are saved.
+                        </p>
+                    ) : (
+                        <p className="text-gray-500 mt-2">You are purchasing {items.length} item(s) from your cart.</p>
+                    )}
+                    <p className="text-gray-400 mt-1">Complete your order securely</p>
                 </div>
 
                 <div className="flex justify-center gap-8 mb-10">
@@ -349,7 +493,7 @@ function Checkout() {
                                 }`}>
                                 {index + 1}
                             </div>
-                            <span className={`text-sm ${step === index + 1 ? 'font-medium' : 'text-gray-400'}`}>
+                            <span className={`text-sm ${step === index + 1 ? 'font-medium text-black' : 'text-gray-400'}`}>
                                 {label}
                             </span>
                         </div>
@@ -371,7 +515,6 @@ function Checkout() {
                             <div className="border border-gray-200 rounded-2xl p-6 shadow-sm">
                                 <h2 className="text-2xl font-bold mb-5">Shipping Information</h2>
 
-                                {/* Saved Addresses Dropdown */}
                                 {savedAddresses.length > 0 && (
                                     <div className="mb-6 p-4 bg-gray-50 rounded-xl">
                                         <label className="block text-sm font-medium mb-2 flex items-center gap-2">
@@ -432,7 +575,7 @@ function Checkout() {
                                             name="address"
                                             value={formData.address}
                                             onChange={handleChange}
-                                            placeholder="House no, street..."
+                                            placeholder="House number, street..."
                                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black"
                                         />
                                         {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
@@ -446,15 +589,19 @@ function Checkout() {
                                 <h2 className="text-2xl font-bold mb-5">Payment Method</h2>
                                 <div className="grid grid-cols-3 gap-3">
                                     {[
-                                        { id: 'cod', label: 'COD', icon: Wallet },
-                                        { id: 'card', label: 'Card', icon: CreditCard },
+                                        { id: 'cod', label: 'Cash on Delivery', icon: Wallet },
+                                        { id: 'card', label: 'Credit/Debit Card', icon: CreditCard },
                                         { id: 'upi', label: 'UPI', icon: Smartphone },
                                     ].map((option) => (
                                         <button
                                             key={option.id}
                                             onClick={() => setFormData((prev) => ({ ...prev, paymentMethod: option.id }))}
-                                            className={`p-4 rounded-xl border-2 ${formData.paymentMethod === option.id ? 'border-black' : 'border-gray-200'}`}>
-                                            <option.icon size={22} className="mx-auto mb-2" />
+                                            className={`p-4 rounded-xl border-2 transition ${
+                                                formData.paymentMethod === option.id
+                                                    ? 'border-black bg-black text-white'
+                                                    : 'border-gray-200 hover:border-gray-300'
+                                            }`}>
+                                            <option.icon size={24} className="mx-auto mb-2" />
                                             <p className="text-sm font-medium">{option.label}</p>
                                         </button>
                                     ))}
@@ -464,53 +611,71 @@ function Checkout() {
 
                         {step === 3 && (
                             <div className="border border-gray-200 rounded-2xl p-6 shadow-sm">
-                                <h2 className="text-2xl font-bold mb-5">Review Order</h2>
+                                <h2 className="text-2xl font-bold mb-5">Review Your Order</h2>
                                 <div className="space-y-4">
-                                    {items.map((item) => (
-                                        <div key={item.id} className="flex justify-between items-center border-b pb-4">
-                                            <div className="flex gap-3">
-                                                <img
-                                                    src={
-                                                        item.product_image
-                                                            ? `http://127.0.0.1:8000${item.product_image}`
-                                                            : '/placeholder.jpg'
-                                                    }
-                                                    alt={item.product_name}
-                                                    className="w-16 h-16 object-cover rounded-lg"
-                                                />
-                                                <div>
-                                                    <p className="font-medium">{item.product_name}</p>
-                                                    <p className="text-sm text-gray-400">Qty: {item.quantity}</p>
+                                    {items.map((item, idx) => {
+                                        const imageUrl = getImageUrl(item); // ✅ FIXED: Use the helper function
+
+                                        return (
+                                            <div key={idx} className="flex justify-between items-center border-b pb-4">
+                                                <div className="flex gap-3">
+                                                    <img
+                                                        src={imageUrl}
+                                                        alt={item.product_name}
+                                                        className="w-16 h-16 object-cover rounded-lg"
+                                                        onError={(e) => {
+                                                            e.target.src = 'https://via.placeholder.com/60x60?text=Product';
+                                                        }}
+                                                    />
+                                                    <div>
+                                                        <p className="font-medium">{item.product_name}</p>
+                                                        <p className="text-sm text-gray-400">Qty: {item.quantity || 1}</p>
+                                                    </div>
                                                 </div>
+                                                <p className="font-bold">
+                                                    ₹{((item.product_price || 0) * (item.quantity || 1)).toLocaleString()}
+                                                </p>
                                             </div>
-                                            <p className="font-bold">
-                                                ₹{(item.product_price * item.quantity).toLocaleString()}
-                                            </p>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
+                                </div>
+                                <div className="mt-6 p-4 bg-gray-50 rounded-xl">
+                                    <p className="font-medium mb-2">Shipping to:</p>
+                                    <p className="text-sm text-gray-600">{formData.fullName}</p>
+                                    <p className="text-sm text-gray-600">{formData.address}</p>
+                                    <p className="text-sm text-gray-600">
+                                        {formData.city}, {formData.state} - {formData.pincode}
+                                    </p>
+                                    <p className="text-sm text-gray-600">📞 {formData.phone}</p>
+                                    <p className="text-sm text-gray-600">📧 {formData.email}</p>
                                 </div>
                             </div>
                         )}
 
                         <div className="flex gap-4">
                             {step > 1 && (
-                                <button onClick={handleBack} className="px-8 py-3 border border-gray-300 rounded-xl">
+                                <button
+                                    onClick={handleBack}
+                                    className="px-8 py-3 border border-gray-300 rounded-xl hover:bg-gray-50">
                                     Back
                                 </button>
                             )}
                             {step < 3 ? (
                                 <button
                                     onClick={handleNext}
-                                    className="flex-1 bg-black text-white py-3 rounded-xl flex items-center justify-center gap-2">
+                                    className="flex-1 bg-black text-white py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800">
                                     Continue <ArrowRight size={16} />
                                 </button>
                             ) : (
                                 <button
                                     onClick={handlePlaceOrder}
                                     disabled={loading}
-                                    className="flex-1 bg-black text-white py-3 rounded-xl flex items-center justify-center gap-2">
+                                    className="flex-1 bg-black text-white py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 disabled:opacity-50">
                                     {loading ? (
-                                        'Processing...'
+                                        <>
+                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                            Processing...
+                                        </>
                                     ) : (
                                         <>
                                             <Lock size={16} /> Place Order
@@ -534,11 +699,11 @@ function Checkout() {
                                     <span>{shipping === 0 ? 'FREE' : `₹${shipping}`}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span>Tax</span>
+                                    <span>Tax (5%)</span>
                                     <span>₹{tax}</span>
                                 </div>
                                 {discount > 0 && (
-                                    <div className="flex justify-between text-red-600">
+                                    <div className="flex justify-between text-green-600">
                                         <span>Discount</span>
                                         <span>-₹{discount}</span>
                                     </div>
@@ -547,17 +712,17 @@ function Checkout() {
                             <div className="border-t my-4"></div>
                             <div className="flex justify-between items-center mb-5">
                                 <span className="font-bold">Total</span>
-                                <span className="text-2xl font-bold text-red-600">₹{total.toLocaleString()}</span>
+                                <span className="text-2xl font-bold">₹{total.toLocaleString()}</span>
                             </div>
                             <div className="space-y-2 text-xs text-gray-400">
                                 <div className="flex items-center gap-2">
                                     <ShieldCheck size={12} /> Secure Checkout
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Truck size={12} /> Fast Delivery
+                                    <Truck size={12} /> Free Delivery on orders above ₹5000
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Clock size={12} /> Easy Returns
+                                    <Clock size={12} /> 30 Days Easy Returns
                                 </div>
                             </div>
                         </div>
