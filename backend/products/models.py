@@ -1,6 +1,7 @@
 # products/models.py
 from django.db import models
-from django.conf import settings  # ✅ Use settings.AUTH_USER_MODEL
+from django.conf import settings
+from django.core.exceptions import ValidationError  
 
 
 # =========================
@@ -71,6 +72,28 @@ class Product(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # 👇 ADD THIS DELETE METHOD
+    def delete(self, *args, **kwargs):
+        """Prevent deletion if product has pending orders"""
+        # Check if this product has any pending or confirmed orders
+        pending_orders = self.orderitem_set.filter(
+            order__status__in=['pending', 'confirmed']
+        ).exists()
+        
+        if pending_orders:
+            # Get order IDs for better error message
+            order_ids = self.orderitem_set.filter(
+                order__status__in=['pending', 'confirmed']
+            ).values_list('order__id', flat=True)
+            
+            raise ValidationError(
+                f"Cannot delete product '{self.name}'. "
+                f"It has pending orders (Order IDs: {', '.join(map(str, order_ids))}). "
+                f"Please complete or cancel these orders first."
+            )
+        
+        super().delete(*args, **kwargs)
+
     def __str__(self):
         return self.name
 
@@ -80,7 +103,7 @@ class Product(models.Model):
 # =========================
 class Wishlist(models.Model):
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,  # ✅ Use settings.AUTH_USER_MODEL
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='wishlist_items'
     )

@@ -1,47 +1,64 @@
-// hooks/useSocket.js
+// src/hooks/useSocket.js
 import { useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
-
-// Use the correct port where your Socket.IO server is running
-const SOCKET_URL = 'http://localhost:5000'; // Change to your Socket.IO server port
+import io from 'socket.io-client';
 
 export const useSocket = () => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Only connect if not already connected
-    if (socket) return;
+    // Only connect if admin is logged in
+    const adminToken = localStorage.getItem('admin_access');
+    if (!adminToken) {
+      console.log('No admin token, skipping socket connection');
+      return;
+    }
 
-    const newSocket = io(SOCKET_URL, {
-      transports: ['polling', 'websocket'], // Try polling first, then upgrade to websocket
+    console.log('Connecting to socket server...');
+
+    // Try with polling only first (more reliable)
+    const socketInstance = io('http://localhost:3002', {
+      transports: ['polling'], // Use polling first, which is more reliable
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      timeout: 20000,
+      forceNew: true
     });
 
-    newSocket.on('connect', () => {
-      console.log('✅ Socket.IO connected to', SOCKET_URL);
+    socketInstance.on('connect', () => {
+      console.log('✅ Socket connected successfully!');
       setIsConnected(true);
+      setError(null);
+
+      // Authenticate as admin
+      socketInstance.emit('authenticate', {
+        userId: 'admin_' + Date.now(),
+        userType: 'admin',
+        userName: 'Administrator'
+      });
     });
 
-    newSocket.on('disconnect', () => {
-      console.log('❌ Socket.IO disconnected');
+    socketInstance.on('connect_error', (err) => {
+      console.error('Socket connection error:', err.message);
+      setError(err.message);
       setIsConnected(false);
     });
 
-    newSocket.on('connect_error', (error) => {
-      console.log('Socket.IO connection error:', error.message);
+    socketInstance.on('disconnect', (reason) => {
+      console.log('Socket disconnected:', reason);
+      setIsConnected(false);
     });
 
-    setSocket(newSocket);
+    setSocket(socketInstance);
 
     return () => {
-      if (newSocket) {
-        newSocket.disconnect();
+      if (socketInstance) {
+        socketInstance.disconnect();
       }
     };
   }, []);
 
-  return { socket, isConnected };
+  return { socket, isConnected, error };
 };

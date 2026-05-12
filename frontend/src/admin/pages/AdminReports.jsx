@@ -23,6 +23,47 @@ import {
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
+// Add this after your imports
+const printStyles = `
+  @media print {
+    /* Keep dark background when printing */
+    body, .min-h-screen, .bg-gradient-to-br, .bg-black\\/20, 
+    .bg-black\\/30, .backdrop-blur-xl, .bg-white\\/10, 
+    .bg-white\\/5, .bg-gray-900\\/95, [class*="bg-black"], [class*="bg-gradient"] {
+      background: #0a0a0a !important;
+      background-color: #0a0a0a !important;
+      backdrop-filter: none !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    
+    /* Keep text white for printing */
+    .text-white, .text-white\\/50, .text-white\\/60, .text-white\\/70,
+    .text-white\\/40, .text-white\\/30, h1, h2, h3, p, span, div, label {
+      color: white !important;
+    }
+    
+    /* Keep borders visible */
+    .border-white\\/10, .border-white\\/20, .border-white\\/30 {
+      border-color: rgba(255,255,255,0.1) !important;
+    }
+    
+    /* Keep chart colors */
+    .recharts-bar-rectangle {
+      fill: #93c5fd !important;
+    }
+    
+    /* Keep card backgrounds dark */
+    .bg-black\\/20, .bg-black\\/30, .bg-white\\/10, .bg-white\\/5 {
+      background: rgba(0,0,0,0.2) !important;
+    }
+    
+    /* Hide buttons when printing */
+    button:not(.no-print), .no-print {
+      display: none !important;
+    }
+  }
+`;
 const GlassCard = ({ children }) => (
     <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl overflow-hidden">
         {children}
@@ -74,6 +115,16 @@ function AdminReports() {
     const [salesData, setSalesData] = useState([]);
     const [categoryData, setCategoryData] = useState([]);
     const [topProducts, setTopProducts] = useState([]);
+    // Add this inside AdminReports component, after useState declarations
+    useEffect(() => {
+        const styleElement = document.createElement('style');
+        styleElement.textContent = printStyles;
+        document.head.appendChild(styleElement);
+
+        return () => {
+            document.head.removeChild(styleElement);
+        };
+    }, []);
 
     useEffect(() => {
         fetchReportData();

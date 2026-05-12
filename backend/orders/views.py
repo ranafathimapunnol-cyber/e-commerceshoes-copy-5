@@ -12,13 +12,39 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
+import requests 
+import json
+
+User = get_user_model()
+
+
 # =========================
-# 1. CREATE ORDER (USER) - WITH DUPLICATE PREVENTION
+# 1. CREATE ORDER (USER) - WITH SOCKET.IO EMISSION
 # =========================
 class CreateOrderView(GenericAPIView):
     """Create new order with stock deduction and duplicate prevention"""
     permission_classes = [IsAuthenticated]
     serializer_class = OrderSerializer
+
+    def emit_socket_event(self, event_name, data):
+        """Emit event to Socket.IO server"""
+        try:
+            # Your Socket.IO server URL (adjust port if needed)
+            socket_url = 'http://localhost:5000'  # Change to your Socket.IO server
+            
+            # Send event to Socket.IO server
+            response = requests.post(f'{socket_url}/emit-event', json={
+                'event': event_name,
+                'data': data
+            })
+            
+            if response.status_code == 200:
+                print(f"✅ Socket.IO event '{event_name}' emitted")
+            else:
+                print(f"⚠️ Socket.IO emission failed: {response.status_code}")
+                
+        except Exception as e:
+            print(f"⚠️ Socket.IO connection error: {e}")
 
     def post(self, request):
         try:
@@ -62,6 +88,8 @@ class CreateOrderView(GenericAPIView):
 
             # Create Order Items and deduct stock
             order_total = 0
+            order_items_list = []
+            
             for item in items:
                 product = Product.objects.get(id=item['product'])
                 quantity = item.get('quantity', 1)
@@ -70,13 +98,21 @@ class CreateOrderView(GenericAPIView):
                 product.stock -= quantity
                 product.save()
 
-                OrderItem.objects.create(
+                order_item = OrderItem.objects.create(
                     order=order,
                     product=product,
                     quantity=quantity,
                     price=item_price
                 )
                 order_total += item_price
+                
+                order_items_list.append({
+                    'product_id': product.id,
+                    'product_name': product.name,
+                    'quantity': quantity,
+                    'price': str(item_price),
+                    'image': product.image.url if product.image else None
+                })
 
             order.total_price = order_total
             order.save()
@@ -102,11 +138,25 @@ class CreateOrderView(GenericAPIView):
                         )
                         print(f"✅ Notification created for {admin.username}")
                     else:
-                        print(
-                            f"⚠️ Notification already exists for order #{order.id}")
+                        print(f"⚠️ Notification already exists for order #{order.id}")
 
             except Exception as e:
                 print(f"Notification creation failed: {e}")
+
+            # ✅ EMIT SOCKET.IO EVENT FOR REAL-TIME NOTIFICATION
+            socket_data = {
+                'order_id': order.id,
+                'total_amount': str(order_total),
+                'customer_name': request.user.username,
+                'customer_email': request.user.email,
+                'items_count': len(items),
+                'items': order_items_list,
+                'status': order.status,
+                'timestamp': str(order.created_at)
+            }
+            
+            # Emit to Socket.IO server
+            self.emit_socket_event('new_order', socket_data)
 
             return Response({
                 'success': True,
@@ -119,7 +169,6 @@ class CreateOrderView(GenericAPIView):
         except Exception as e:
             print("Error creating order:", str(e))
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 # =========================
 # 2. MY ORDERS (USER)

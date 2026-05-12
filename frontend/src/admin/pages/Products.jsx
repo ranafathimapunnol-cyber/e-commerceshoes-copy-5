@@ -5,7 +5,7 @@ import axiosInstance from '../services/axiosInstance';
 import AdminLayout from '../components/AdminLayout';
 import { Edit, Trash2, Package, Plus, ChevronLeft, ChevronRight, Search, TrendingUp, DollarSign, Tags } from 'lucide-react';
 import { showSuccess, showError } from '../../utils/toast';
-
+import toast from 'react-hot-toast';
 const GlassCard = ({ children }) => (
     <div className="bg-black/20 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl overflow-hidden">
         {children}
@@ -97,10 +97,20 @@ function ProductsAdmin() {
         setDeletingId(id);
         try {
             await axiosInstance.delete(`products/delete/${id}/`);
-            alert(`${productName} deleted`);
+            // ✅ Success toast
+            showSuccess(`${productName} deleted successfully`);
             setProducts(products.filter((p) => p.id !== id));
         } catch (error) {
-            alert('Delete failed');
+            // ✅ Error toast with specific message
+            if (error.response?.status === 400 || error.response?.data?.message?.includes('pending')) {
+                showError(
+                    `Cannot delete "${productName}". It has pending orders. Please cancel or complete the orders first.`,
+                );
+            } else {
+                showError(
+                    `Failed to delete "${productName}". ${error.response?.data?.message || 'It has pending orders. Please cancel or complete the orders first'}`,
+                );
+            }
         } finally {
             setDeletingId(null);
         }

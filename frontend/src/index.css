@@ -5,3 +5,33 @@
 * {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
+/* Add these to your src/index.css */
+@keyframes enter {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes leave {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+.animate-enter {
+    animation: enter 0.3s ease-out;
+}
+
+.animate-leave {
+    animation: leave 0.2s ease-in forwards;
+}
