@@ -48,7 +48,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'channels',
-    'notifications',  # ✅ Your notifications app
+    'notifications',
+    'core',
 
     'users',
     'products',

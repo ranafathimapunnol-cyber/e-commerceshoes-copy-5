@@ -1,0 +1,16 @@
+[Unit]
+Description=Gunicorn for E-commerce Django
+After=network.target
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/ecommerce/backend
+Environment="PATH=/home/ubuntu/ecommerce/venv/bin"
+Environment="DJANGO_SUPERUSER_USERNAME=ranafathimaadmin"
+Environment="DJANGO_SUPERUSER_EMAIL=admin@gmail.com"
+Environment="DJANGO_SUPERUSER_PASSWORD=ranafathima123"
+ExecStart=/home/ubuntu/ecommerce/venv/bin/gunicorn backend.wsgi:application --bind 127.0.0.1:8000 --workers 3
+
+[Install]
+WantedBy=multi-user.target
