@@ -1,4 +1,3 @@
-// context/WishlistContext.jsx - COMPLETE FIXED
 import React, { createContext, useState, useEffect } from 'react';
 import { showSuccess, showWarning, showError } from '../utils/toast';
 import axios from 'axios';
@@ -19,7 +18,7 @@ export const WishlistProvider = ({ children }) => {
         }
 
         try {
-            const response = await axios.get('http://127.0.0.1:8000/api/products/wishlist/', {
+            const response = await axios.get('/api/products/wishlist/', {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -88,7 +87,7 @@ export const WishlistProvider = ({ children }) => {
         try {
             if (isCurrentlyInWishlist) {
                 // Remove from wishlist via API
-                await axios.delete(`http://127.0.0.1:8000/api/products/wishlist/remove/${productId}/`, {
+                await axios.delete(`/api/products/wishlist/remove/${productId}/`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 
@@ -98,7 +97,7 @@ export const WishlistProvider = ({ children }) => {
             } else {
                 // Add to wishlist via API
                 await axios.post(
-                    'http://127.0.0.1:8000/api/products/wishlist/add/',
+                    '/api/products/wishlist/add/',
                     { product: productId },
                     { headers: { Authorization: `Bearer ${token}` } },
                 );
@@ -132,7 +131,7 @@ export const WishlistProvider = ({ children }) => {
         }
 
         try {
-            await axios.delete(`http://127.0.0.1:8000/api/products/wishlist/remove/${productId}/`, {
+            await axios.delete(`/api/products/wishlist/remove/${productId}/`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -158,7 +157,7 @@ export const WishlistProvider = ({ children }) => {
         try {
             // Remove all items one by one
             for (const item of wishlist) {
-                await axios.delete(`http://127.0.0.1:8000/api/products/wishlist/remove/${item.id}/`, {
+                await axios.delete(`/api/products/wishlist/remove/${item.id}/`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
             }

@@ -112,8 +112,8 @@ function Cart() {
     const getImageUrl = (imagePath) => {
         if (!imagePath) return null;
         if (imagePath.startsWith('http')) return imagePath;
-        if (imagePath.startsWith('/')) return `http://127.0.0.1:8000${imagePath}`;
-        return `http://127.0.0.1:8000/${imagePath}`;
+        if (imagePath.startsWith('/')) return `${imagePath}`;
+        return `/${imagePath}`;
     };
 
     // ✅ REMOVED: The "Save for later" button that added to wishlist without login

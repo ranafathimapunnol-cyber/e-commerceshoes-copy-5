@@ -1,10 +1,10 @@
-// components/Sidebar.jsx
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { LayoutDashboard, Package, Users, ShoppingCart, Plus, Menu, X, LogOut, Settings, BarChart3 } from 'lucide-react';
 
 function Sidebar() {
     const location = useLocation();
+    const navigate = useNavigate();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -34,7 +34,7 @@ function Sidebar() {
         localStorage.removeItem('admin_access');
         localStorage.removeItem('admin_refresh');
         localStorage.removeItem('isAdmin');
-        window.location.href = '/admin/login';
+        navigate('/admin/login');
     };
 
     const isActive = (path) => location.pathname === path;

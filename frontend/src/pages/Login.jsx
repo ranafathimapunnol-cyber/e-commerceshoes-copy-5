@@ -27,7 +27,7 @@ function Login() {
         }
         setLoading(true);
         try {
-            const response = await axios.post('http://127.0.0.1:8000/api/users/login/', {
+            const response = await axios.post('/api/users/login/', {
                 username,
                 password,
             });
@@ -47,7 +47,7 @@ function Login() {
     return (
         <div className="min-h-screen flex bg-black text-white">
             <div className="hidden lg:flex w-1/2 relative">
-                <img src="/login.png" alt="login" className="w-full h-full object-cover" />
+                <img src="/static/login.png" alt="login" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-black/60"></div>
                 <div className="absolute bottom-20 left-10">
                     <h1 className="text-5xl font-black">RAPIDO</h1>

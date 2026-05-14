@@ -1,4 +1,3 @@
-// pages/Wishlist.jsx - COMPLETE WORKING VERSION
 import { useContext, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { WishlistContext } from '../context/WishlistContext';
@@ -70,10 +69,11 @@ function Wishlist() {
     };
 
     const getImageUrl = (imagePath) => {
-        if (!imagePath) return 'https://via.placeholder.com/300x300?text=No+Image';
+        if (!imagePath) return '/static/logo.png';
         if (imagePath.startsWith('http')) return imagePath;
-        if (imagePath.startsWith('/')) return `http://127.0.0.1:8000${imagePath}`;
-        return `http://127.0.0.1:8000/media/${imagePath}`;
+        if (imagePath.startsWith('/static')) return imagePath;
+        if (imagePath.startsWith('/media')) return imagePath;
+        return `/media/${imagePath}`;
     };
 
     if (loading) {
@@ -129,7 +129,7 @@ function Wishlist() {
                                         alt={product.name}
                                         className="w-full h-full object-cover group-hover:scale-110 transition duration-700"
                                         onError={(e) => {
-                                            e.target.src = 'https://via.placeholder.com/300x300?text=No+Image';
+                                            e.target.src = '/static/logo.png';
                                         }}
                                     />
 

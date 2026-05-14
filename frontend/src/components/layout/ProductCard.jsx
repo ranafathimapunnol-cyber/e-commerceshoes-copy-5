@@ -41,9 +41,9 @@ export default function ProductCard({ product, hideBuyNow = false }) {
         }
         if (productImage.startsWith('http')) return productImage;
         if (productImage.startsWith('/media/') || productImage.startsWith('/uploads/')) {
-            return `http://127.0.0.1:8000${productImage}`;
+            return `${productImage}`;
         }
-        return `http://127.0.0.1:8000/${productImage.replace(/^\/+/, '')}`;
+        return `/${productImage.replace(/^\/+/, '')}`;
     };
 
     const handleWishlist = (e) => {

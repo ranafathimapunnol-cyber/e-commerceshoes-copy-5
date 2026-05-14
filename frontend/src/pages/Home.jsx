@@ -3,7 +3,6 @@ import Hero from '../components/home/Hero';
 import Categories from '../components/Home/Categories';
 import Featured from '../components/home/Featured';
 import OfferBanner from '../components/home/OfferBanner';
-import Footer from '../components/layout/Footer';
 import VideoShowcase from '../components/home/VideoShowcase';
 
 function Home() {
@@ -21,7 +20,6 @@ function Home() {
 
             <OfferBanner />
 
-            <Footer />
         </div>
     );
 }

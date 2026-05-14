@@ -19,7 +19,7 @@ function ShopByCategory() {
         const fetchProducts = async () => {
             setLoading(true);
             try {
-                let url = 'http://127.0.0.1:8000/api/products/';
+                let url = '/api/products/';
                 if (formattedCategory === 'UNISEX') {
                     url += '?gender=UNISEX';
                 } else {

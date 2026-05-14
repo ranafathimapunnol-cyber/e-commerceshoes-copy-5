@@ -15,7 +15,7 @@ function OfferBanner() {
         <div className="relative h-[80vh] overflow-hidden">
             {/* VIDEO BACKGROUND */}
             <video autoPlay muted loop playsInline className="absolute w-full h-full object-cover">
-                <source src="/videos/offer.mp4" type="video/mp4" />
+                <source src="/static/media/products/videos/offer.mp4" type="video/mp4" />
             </video>
 
             {/* DARK OVERLAY */}

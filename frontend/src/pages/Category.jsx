@@ -57,7 +57,7 @@ function Categories() {
     const fetchProductsByCategory = async (categoryId) => {
         setLoading(true);
         try {
-            const res = await axios.get(`http://127.0.0.1:8000/api/products/?category=${categoryId}`);
+            const res = await axios.get(`/api/products/?category=${categoryId}`);
             const enhanced = res.data.map((p) => ({
                 ...p,
                 rating: (Math.random() * 1.5 + 3.5).toFixed(1),
@@ -309,7 +309,7 @@ function Categories() {
                                 className="bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-lg transition cursor-pointer flex gap-4">
                                 <div className="w-32 h-32 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
                                     <img
-                                        src={product.image ? `http://127.0.0.1:8000${product.image}` : '/placeholder.jpg'}
+                                        src={product.image ? `${product.image}` : '/placeholder.jpg'}
                                         className="w-full h-full object-cover"
                                     />
                                 </div>

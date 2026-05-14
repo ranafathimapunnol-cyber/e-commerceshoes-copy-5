@@ -20,7 +20,7 @@ function Featured() {
     useEffect(() => {
         const fetchProducts = async () => {
             try {
-                const res = await axios.get('http://127.0.0.1:8000/api/products/'); // Fetch all products
+                const res = await axios.get('/api/products/'); // Fetch all products
 
                 const featuredProducts = [res.data[3], res.data[23], res.data[4]];
 
@@ -120,7 +120,7 @@ function Featured() {
                                             src={
                                                 product.image?.startsWith('http')
                                                     ? product.image
-                                                    : `http://127.0.0.1:8000${product.image}`
+                                                    : `${product.image}`
                                             }
                                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                             onLoad={() => handleImageLoad(product.id)}

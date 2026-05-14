@@ -1,3 +1,6 @@
+
+
+
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag, Heart, User, ChevronDown } from 'lucide-react';
@@ -53,9 +56,9 @@ function PremiumBlackWhiteNavbar() {
         const updateColor = () => {
             const scrollY = window.scrollY;
 
-            if (scrollY < 675) setNavTextColor('white');
-            else if (scrollY < 2040) setNavTextColor('black');
-            else if (scrollY < 3580) setNavTextColor('white');
+            if (scrollY < 745) setNavTextColor('white');
+            else if (scrollY < 2120) setNavTextColor('black');
+            else if (scrollY < 3685) setNavTextColor('white');
             else setNavTextColor('black');
         };
 
@@ -95,7 +98,7 @@ function PremiumBlackWhiteNavbar() {
                 {/* LOGO */}
                 <div className="flex-shrink-0 z-10">
                     <img
-                        src={navTextColor === 'white' ? '/logo.png' : '/logo2.png'}
+                        src={navTextColor === 'white' ? '/static/logo.png' : '/static/logo2.png'}
                         className="h-24 object-contain cursor-pointer"
                         alt="logo"
                         onClick={() => navigate('/')}

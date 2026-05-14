@@ -47,7 +47,7 @@ const NotificationCenter = () => {
     const fetchNotifications = async () => {
         try {
             const token = localStorage.getItem('admin_access');
-            const response = await axios.get('http://127.0.0.1:8000/api/notifications/admin/', {
+            const response = await axios.get('/api/notifications/admin/', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setNotifications(response.data);
@@ -78,7 +78,7 @@ const NotificationCenter = () => {
         try {
             const token = localStorage.getItem('admin_access');
             await axios.post(
-                `http://127.0.0.1:8000/api/notifications/mark-read/${notificationId}/`,
+                `/api/notifications/mark-read/${notificationId}/`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } },
             );

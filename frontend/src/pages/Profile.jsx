@@ -102,7 +102,7 @@ function Profile() {
             }
 
             // Get user profile from token - use the users/me/ endpoint
-            const profileRes = await axios.get('http://127.0.0.1:8000/api/users/profile/', {
+            const profileRes = await axios.get('/api/users/profile/', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setUser(profileRes.data);
@@ -115,7 +115,7 @@ function Profile() {
             });
 
             // Get orders
-            const ordersRes = await axios.get('http://127.0.0.1:8000/api/orders/my-orders/', {
+            const ordersRes = await axios.get('/api/orders/my-orders/', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setOrders(ordersRes.data || []);
@@ -155,7 +155,7 @@ function Profile() {
             const token = localStorage.getItem('access');
             if (!token) return;
 
-            const addressRes = await axios.get('http://127.0.0.1:8000/api/users/addresses/', {
+            const addressRes = await axios.get('/api/users/addresses/', {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setAddresses(addressRes.data || []);
@@ -187,7 +187,7 @@ function Profile() {
         }
 
         try {
-            const response = await axios.post('http://127.0.0.1:8000/api/users/addresses/', newAddress, {
+            const response = await axios.post('/api/users/addresses/', newAddress, {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -216,7 +216,7 @@ function Profile() {
         if (!token) return;
 
         try {
-            await axios.delete(`http://127.0.0.1:8000/api/users/addresses/${addressId}/`, {
+            await axios.delete(`/api/users/addresses/${addressId}/`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setAddresses(addresses.filter((addr) => addr.id !== addressId));
@@ -235,7 +235,7 @@ function Profile() {
 
         try {
             await axios.put(
-                `http://127.0.0.1:8000/api/users/addresses/${addressId}/set-default/`,
+                `/api/users/addresses/${addressId}/set-default/`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } },
             );
@@ -301,7 +301,7 @@ function Profile() {
         setErrorMessage('');
         try {
             const token = localStorage.getItem('access');
-            const response = await axios.put('http://127.0.0.1:8000/api/users/profile/', formData, {
+            const response = await axios.put('/api/users/profile/', formData, {
                 headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
             });
             setUser((prev) => ({ ...prev, profile_picture: response.data.profile_picture }));
@@ -323,7 +323,7 @@ function Profile() {
         try {
             const token = localStorage.getItem('access');
             await axios.put(
-                'http://127.0.0.1:8000/api/users/profile/',
+                '/api/users/profile/',
                 { profile_picture: null },
                 { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } },
             );
@@ -345,7 +345,7 @@ function Profile() {
         setErrorMessage('');
         try {
             const token = localStorage.getItem('access');
-            const response = await axios.put('http://127.0.0.1:8000/api/users/profile/', editForm, {
+            const response = await axios.put('/api/users/profile/', editForm, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setUser((prev) => ({ ...prev, ...response.data }));
@@ -381,7 +381,7 @@ function Profile() {
         setSaveLoading(true);
         try {
             // ✅ USE CORRECT ENDPOINT - 'delete-account/'
-            const response = await axios.delete('http://127.0.0.1:8000/api/users/delete-account/', {
+            const response = await axios.delete('/api/users/delete-account/', {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -428,7 +428,7 @@ function Profile() {
     const getProfileImageUrl = () => {
         if (user?.profile_picture) {
             if (user.profile_picture.startsWith('http')) return user.profile_picture;
-            return `http://127.0.0.1:8000${user.profile_picture}`;
+            return `${user.profile_picture}`;
         }
         return null;
     };
@@ -1206,7 +1206,7 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
                                         <img
                                             src={
                                                 item.product?.image
-                                                    ? `http://127.0.0.1:8000${item.product.image}`
+                                                    ? `${item.product.image}`
                                                     : 'https://placehold.co/60x60?text=Product'
                                             }
                                             alt={item.product?.name}
@@ -1434,7 +1434,7 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal }) => {
                                     <img
                                         src={
                                             item.product?.image
-                                                ? `http://127.0.0.1:8000${item.product.image}`
+                                                ? `${item.product.image}`
                                                 : 'https://placehold.co/60x60?text=Product'
                                         }
                                         alt={item.product?.name}

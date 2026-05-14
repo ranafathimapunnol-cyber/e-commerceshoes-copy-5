@@ -31,12 +31,12 @@ const getImageUrl = (imagePath) => {
         return imagePath;
     }
     if (imagePath.startsWith('/media/')) {
-        return `http://127.0.0.1:8000${imagePath}`;
+        return `${imagePath}`;
     }
     if (imagePath.startsWith('/')) {
-        return `http://127.0.0.1:8000${imagePath}`;
+        return `${imagePath}`;
     }
-    return `http://127.0.0.1:8000/media/${imagePath}`;
+    return `/media/${imagePath}`;
 };
 
 function MyOrders() {
@@ -57,7 +57,7 @@ function MyOrders() {
                 return;
             }
 
-            const response = await axios.get('http://127.0.0.1:8000/api/orders/my-orders/', {
+            const response = await axios.get('/api/orders/my-orders/', {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
@@ -534,7 +534,7 @@ const OrderDetailsModal = ({ order, onClose, getItemPrice, getItemTotal, getTrac
                                     const imageUrl = getImageUrl
                                         ? getImageUrl(imagePath)
                                         : imagePath
-                                          ? `http://127.0.0.1:8000${imagePath}`
+                                          ? `${imagePath}`
                                           : 'https://via.placeholder.com/60x60?text=Product';
 
                                     return (

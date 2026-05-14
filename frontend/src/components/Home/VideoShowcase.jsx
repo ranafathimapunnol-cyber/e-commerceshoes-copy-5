@@ -6,22 +6,22 @@ function VideoShowcase() {
 
     const videos = [
         {
-            src: '/videos/v1.mp4',
+            src: '/static/v1.mp4',
             title: 'RUN FAST',
             subtitle: 'Built for speed',
         },
         {
-            src: '/videos/v2.mp4',
+            src: '/static/v2.mp4',
             title: 'STREET STYLE',
             subtitle: 'Modern fashion',
         },
         {
-            src: '/videos/v3.mp4',
+            src: '/static/v3.mp4',
             title: 'LIMITLESS',
             subtitle: 'Feel the comfort',
         },
         {
-            src: '/videos/v4.mp4',
+            src: '/static/v4.mp4',
             title: 'NEW ERA',
             subtitle: 'Premium collection',
         },

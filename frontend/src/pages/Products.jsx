@@ -61,7 +61,7 @@ function Products() {
                 const category = params.get('category');
                 const sub_category = params.get('subcategory');
 
-                let url = 'http://127.0.0.1:8000/api/products/';
+                let url = '/api/products/';
                 const query = [];
 
                 if (category) query.push(`category=${category}`);
@@ -401,7 +401,7 @@ function Products() {
                                 className="bg-white border border-gray-200 rounded-2xl p-4 hover:shadow-lg transition cursor-pointer flex flex-col sm:flex-row gap-4">
                                 <div className="w-full sm:w-32 h-32 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
                                     <img
-                                        src={item.image ? `http://127.0.0.1:8000${item.image}` : '/placeholder.jpg'}
+                                        src={item.image ? `${item.image}` : '/placeholder.jpg'}
                                         alt={item.name}
                                         className="w-full h-full object-cover"
                                     />

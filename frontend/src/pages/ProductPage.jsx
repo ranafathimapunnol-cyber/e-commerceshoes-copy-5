@@ -154,7 +154,7 @@ function ProductDetail() {
                     return;
                 }
 
-                const response = await axios.get(`http://127.0.0.1:8000/api/products/${id}/`);
+                const response = await axios.get(`/api/products/${id}/`);
 
                 if (response.data) {
                     setProduct(response.data);
@@ -183,8 +183,8 @@ function ProductDetail() {
     const getImage = (img) => {
         if (!img) return '/placeholder.jpg';
         if (img.startsWith('http')) return img;
-        if (img.startsWith('/')) return `http://127.0.0.1:8000${img}`;
-        return `http://127.0.0.1:8000/media/${img}`;
+        if (img.startsWith('/')) return `${img}`;
+        return `/media/${img}`;
     };
 
     // Handle Add to Cart

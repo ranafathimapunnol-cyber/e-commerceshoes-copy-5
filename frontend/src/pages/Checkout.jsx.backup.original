@@ -1,0 +1,435 @@
+// Checkout.jsx - COMPLETE FIXED WITH CORRECT API FORMAT
+import React, { useContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import {
+    CreditCard,
+    ShieldCheck,
+    Truck,
+    ArrowRight,
+    Lock,
+    AlertCircle,
+    Wallet,
+    Smartphone,
+    Clock,
+    Home,
+    CheckCircle,
+    Zap,
+    ShoppingBag,
+    User,
+    Mail,
+    Phone,
+    MapPin,
+    Building,
+    Navigation,
+} from 'lucide-react';
+
+import { CartContext } from '../context/CartContext';
+import { showSuccess, showError, showWarning } from '../utils/toast';
+
+function Checkout() {
+    const navigate = useNavigate();
+    const { cart, clearBuyNowItems, hasBuyNowItems, getBuyNowItems, getRegularItems, clearCart } = useContext(CartContext);
+
+    const isBuyNow = hasBuyNowItems ? hasBuyNowItems() : false;
+    const buyNowItems = getBuyNowItems ? getBuyNowItems() : [];
+    const regularItems = getRegularItems ? getRegularItems() : cart?.items || [];
+    const items = isBuyNow ? buyNowItems : regularItems;
+
+    const [step, setStep] = useState(1);
+    const [loading, setLoading] = useState(false);
+    const [orderPlaced, setOrderPlaced] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [orderDetails, setOrderDetails] = useState(null);
+    const [loadingAddress, setLoadingAddress] = useState(true);
+    const [savedAddresses, setSavedAddresses] = useState([]);
+    const [selectedAddressId, setSelectedAddressId] = useState(null);
+
+    const [formData, setFormData] = useState({
+        fullName: '',
+        email: '',
+        phone: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        pincode: '',
+        landmark: '',
+        paymentMethod: 'cod',
+    });
+
+    const [errors, setErrors] = useState({});
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const validateForm = () => {
+        const newErrors = {};
+        if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
+        if (!formData.email.trim()) newErrors.email = 'Email is required';
+        else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
+        if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
+        else if (!/^\d{10}$/.test(formData.phone)) newErrors.phone = 'Phone number must be 10 digits';
+        if (!formData.addressLine1.trim()) newErrors.addressLine1 = 'Address is required';
+        if (!formData.city.trim()) newErrors.city = 'City is required';
+        if (!formData.state.trim()) newErrors.state = 'State is required';
+        if (!formData.pincode.trim()) newErrors.pincode = 'Pincode is required';
+        else if (!/^\d{6}$/.test(formData.pincode)) newErrors.pincode = 'Pincode must be 6 digits';
+        
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const getImageUrl = (item) => {
+        const imagePath = item.product_image || item.image || item.image_url || '';
+        if (!imagePath) return '/static/logo.png';
+        if (imagePath.startsWith('http')) return imagePath;
+        if (imagePath.startsWith('/static')) return imagePath;
+        if (imagePath.startsWith('/media')) return imagePath;
+        return `/media/${imagePath}`;
+    };
+
+    const calculateTotal = () => {
+        const subtotal = items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+        const shipping = subtotal > 500 ? 0 : 50;
+        const tax = subtotal * 0.05;
+        return { subtotal, shipping, tax, total: subtotal + shipping + tax };
+    };
+
+    const { subtotal, shipping, tax, total } = calculateTotal();
+
+    const handlePlaceOrder = async () => {
+        if (!validateForm()) {
+            showError('Please fill all required fields correctly');
+            return;
+        }
+
+        setLoading(true);
+        setErrorMessage('');
+
+        try {
+            const token = localStorage.getItem('access');
+            if (!token) {
+                showWarning('Please login to continue');
+                navigate('/login');
+                return;
+            }
+
+            // ✅ CORRECT API FORMAT - matches what orders API expects
+            const orderData = {
+                items: items.map(item => ({
+                    product: item.id || item.product_id,  // 'product' not 'product_id'
+                    quantity: item.quantity || 1,
+                    price: item.price
+                })),
+                total_price: total,  // 'total_price' not 'total'
+                shipping_address: `${formData.addressLine1}, ${formData.addressLine2 ? formData.addressLine2 + ', ' : ''}${formData.city}, ${formData.state} - ${formData.pincode}`,
+                payment_method: formData.paymentMethod,
+                customer_name: formData.fullName,
+                customer_email: formData.email,
+                customer_phone: formData.phone
+            };
+
+            console.log('Sending order data:', orderData); // Debug log
+
+            const response = await axios.post('/api/orders/create/', orderData, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.data) {
+                setOrderDetails(response.data);
+                setOrderPlaced(true);
+                
+                if (isBuyNow) {
+                    clearBuyNowItems();
+                } else {
+                    clearCart();
+                }
+                
+                showSuccess('Order placed successfully!');
+            }
+        } catch (error) {
+            console.error('Order error:', error);
+            console.error('Error response:', error.response?.data);
+            setErrorMessage(error.response?.data?.error || error.response?.data?.message || 'Failed to place order');
+            showError(error.response?.data?.error || 'Failed to place order. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (items.length === 0 && !orderPlaced) {
+        return (
+            <div className="min-h-screen bg-gray-50 pt-28 pb-16 px-4">
+                <div className="max-w-4xl mx-auto text-center">
+                    <div className="bg-white rounded-2xl p-8 shadow-sm">
+                        <ShoppingBag size={48} className="mx-auto text-gray-400 mb-4" />
+                        <h1 className="text-2xl font-bold mb-2">No items to checkout</h1>
+                        <p className="text-gray-500 mb-6">Your cart is empty or buy now items have been processed.</p>
+                        <button onClick={() => navigate('/products')} className="bg-black text-white px-6 py-3 rounded-full">
+                            Continue Shopping
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (orderPlaced && orderDetails) {
+        return (
+            <div className="min-h-screen bg-gray-50 pt-28 pb-16 px-4">
+                <div className="max-w-2xl mx-auto text-center">
+                    <div className="bg-white rounded-2xl p-8 shadow-sm">
+                        <CheckCircle size={64} className="mx-auto text-green-500 mb-4" />
+                        <h1 className="text-2xl font-bold mb-2">Order Placed Successfully!</h1>
+                        <p className="text-gray-500 mb-6">Thank you for your purchase.</p>
+                        <button onClick={() => navigate('/products')} className="bg-black text-white px-6 py-3 rounded-full">
+                            Continue Shopping
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-50 pt-28 pb-16 px-4 md:px-8">
+            <div className="max-w-7xl mx-auto">
+                <h1 className="text-3xl md:text-4xl font-bold mb-2 text-center">Checkout</h1>
+                <p className="text-gray-500 text-center mb-8">Complete your purchase</p>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* Left Column - Forms */}
+                    <div className="lg:col-span-2 space-y-6">
+                        {/* Shipping Info */}
+                        <div className="bg-white rounded-2xl p-6 shadow-sm">
+                            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                                <Truck size={20} /> Shipping Information
+                            </h2>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <User size={14} className="inline mr-1" /> Full Name *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="fullName"
+                                        value={formData.fullName}
+                                        onChange={handleInputChange}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent ${errors.fullName ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="John Doe"
+                                    />
+                                    {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName}</p>}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <Mail size={14} className="inline mr-1" /> Email *
+                                    </label>
+                                    <input
+                                        type="email"
+                                        name="email"
+                                        value={formData.email}
+                                        onChange={handleInputChange}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent ${errors.email ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="john@example.com"
+                                    />
+                                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <Phone size={14} className="inline mr-1" /> Phone Number *
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        name="phone"
+                                        value={formData.phone}
+                                        onChange={handleInputChange}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent ${errors.phone ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="9876543210"
+                                        maxLength="10"
+                                    />
+                                    {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <MapPin size={14} className="inline mr-1" /> Address Line 1 *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="addressLine1"
+                                        value={formData.addressLine1}
+                                        onChange={handleInputChange}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent ${errors.addressLine1 ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="House No., Street Name"
+                                    />
+                                    {errors.addressLine1 && <p className="text-red-500 text-xs mt-1">{errors.addressLine1}</p>}
+                                </div>
+
+                                <div className="md:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <Building size={14} className="inline mr-1" /> Address Line 2 (Optional)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="addressLine2"
+                                        value={formData.addressLine2}
+                                        onChange={handleInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent"
+                                        placeholder="Apartment, Floor, Landmark"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        <Navigation size={14} className="inline mr-1" /> City *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="city"
+                                        value={formData.city}
+                                        onChange={handleInputChange}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent ${errors.city ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="Mumbai"
+                                    />
+                                    {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        State *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="state"
+                                        value={formData.state}
+                                        onChange={handleInputChange}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent ${errors.state ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="Maharashtra"
+                                    />
+                                    {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Pincode *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="pincode"
+                                        value={formData.pincode}
+                                        onChange={handleInputChange}
+                                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black focus:border-transparent ${errors.pincode ? 'border-red-500' : 'border-gray-300'}`}
+                                        placeholder="400001"
+                                        maxLength="6"
+                                    />
+                                    {errors.pincode && <p className="text-red-500 text-xs mt-1">{errors.pincode}</p>}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Payment Method */}
+                        <div className="bg-white rounded-2xl p-6 shadow-sm">
+                            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                                <CreditCard size={20} /> Payment Method
+                            </h2>
+                            
+                            <div className="space-y-3">
+                                <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                                    <input
+                                        type="radio"
+                                        name="paymentMethod"
+                                        value="cod"
+                                        checked={formData.paymentMethod === 'cod'}
+                                        onChange={handleInputChange}
+                                        className="mr-3"
+                                    />
+                                    <Wallet size={18} className="mr-2" />
+                                    <span>Cash on Delivery</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Column - Order Summary */}
+                    <div className="lg:col-span-1">
+                        <div className="bg-white rounded-2xl p-6 shadow-sm sticky top-28">
+                            <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
+                            
+                            <div className="space-y-3 max-h-80 overflow-y-auto mb-4">
+                                {items.map((item, idx) => (
+                                    <div key={idx} className="flex gap-3 py-2 border-b">
+                                        <img
+                                            src={getImageUrl(item)}
+                                            alt={item.name || item.product_name}
+                                            className="w-16 h-16 object-cover rounded-lg"
+                                            onError={(e) => { e.target.src = '/static/logo.png'; }}
+                                        />
+                                        <div className="flex-1">
+                                            <p className="font-medium text-sm">{item.name || item.product_name}</p>
+                                            <p className="text-gray-500 text-xs">Qty: {item.quantity || 1}</p>
+                                            <p className="font-semibold text-sm">₹{(item.price * (item.quantity || 1)).toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="space-y-2 pt-3 border-t">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-600">Subtotal</span>
+                                    <span>₹{subtotal.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-600">Shipping</span>
+                                    <span>{shipping === 0 ? 'Free' : `₹${shipping}`}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-gray-600">Tax (5%)</span>
+                                    <span>₹{tax.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                                    <span>Total</span>
+                                    <span>₹{total.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            {errorMessage && (
+                                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-600 text-sm">
+                                    <AlertCircle size={16} />
+                                    {errorMessage}
+                                </div>
+                            )}
+
+                            <button
+                                onClick={handlePlaceOrder}
+                                disabled={loading}
+                                className="w-full mt-6 bg-black text-white py-3 rounded-full font-medium hover:bg-gray-800 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {loading ? (
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <>
+                                        <Lock size={16} />
+                                        Place Order
+                                        <ArrowRight size={16} />
+                                    </>
+                                )}
+                            </button>
+
+                            <p className="text-xs text-gray-400 text-center mt-4 flex items-center justify-center gap-1">
+                                <ShieldCheck size={12} /> Secure checkout
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default Checkout;

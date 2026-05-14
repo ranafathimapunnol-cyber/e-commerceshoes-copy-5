@@ -1,4 +1,4 @@
-// Checkout.jsx - Fixed for both Buy Now and Regular Cart Checkout (No Socket Errors)
+// Checkout.jsx - COMPLETE FIXED VERSION WITH WORKING INPUTS
 import React, { useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -26,25 +26,14 @@ function Checkout() {
     const navigate = useNavigate();
     const { cart, clearBuyNowItems, hasBuyNowItems, getBuyNowItems, getRegularItems, clearCart } = useContext(CartContext);
 
-    // ✅ Check if we're in Buy Now mode
     const isBuyNow = hasBuyNowItems ? hasBuyNowItems() : false;
-
-    // ✅ Get Buy Now items
     const buyNowItems = getBuyNowItems ? getBuyNowItems() : [];
-
-    // ✅ Get regular cart items (non-buy-now) - FIXED for cart checkout
     const regularItems = getRegularItems ? getRegularItems() : cart?.items || [];
-
-    // ✅ For checkout: Buy Now items OR Regular items (not both)
     const items = isBuyNow ? buyNowItems : regularItems;
 
-    // Debug logging
     console.log('=== CHECKOUT DEBUG ===');
     console.log('Is Buy Now mode:', isBuyNow);
-    console.log('Buy Now items:', buyNowItems);
-    console.log('Regular cart items (for cart checkout):', regularItems);
-    console.log('Items being checked out:', items);
-    console.log('Total items in checkout:', items.length);
+    console.log('Items being checked out:', items.length);
 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -68,34 +57,14 @@ function Checkout() {
 
     const [errors, setErrors] = useState({});
 
-    // Helper function to get correct image URL - FIXED
     const getImageUrl = (item) => {
-        // Try different possible image fields
         const imagePath = item.product_image || item.image || item.image_url || '';
-
-        if (!imagePath) {
-            return 'https://via.placeholder.com/60x60?text=Product';
-        }
-
-        if (imagePath.startsWith('http')) {
-            return imagePath;
-        }
-
-        if (imagePath.startsWith('/media/')) {
-            return `http://127.0.0.1:8000${imagePath}`;
-        }
-
-        if (imagePath.startsWith('/')) {
-            return `http://127.0.0.1:8000${imagePath}`;
-        }
-
-        return `http://127.0.0.1:8000/media/${imagePath}`;
+        if (!imagePath) return '/static/logo.png';
+        if (imagePath.startsWith('http')) return imagePath;
+        if (imagePath.startsWith('/static')) return imagePath;
+        if (imagePath.startsWith('/media')) return imagePath;
+        return `/media/${imagePath}`;
     };
-
-    // Show warning if there are multiple items in Buy Now mode
-    if (isBuyNow && items.length > 1) {
-        console.warn('Multiple items in Buy Now checkout!', items);
-    }
 
     // Fetch user profile and addresses
     useEffect(() => {
@@ -112,19 +81,19 @@ function Checkout() {
 
             setLoadingAddress(true);
             try {
-                const profileRes = await axios.get('http://127.0.0.1:8000/api/users/profile/', {
+                const profileRes = await axios.get('/api/users/profile/', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
                 const userProfile = profileRes.data;
 
-                setFormData((prev) => ({
+                setFormData(prev => ({
                     ...prev,
                     fullName: userProfile.full_name || userProfile.username || '',
                     email: userProfile.email || '',
                     phone: userProfile.phone || '',
                 }));
 
-                const addressRes = await axios.get('http://127.0.0.1:8000/api/users/addresses/', {
+                const addressRes = await axios.get('/api/users/addresses/', {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 
@@ -134,7 +103,7 @@ function Checkout() {
                 const defaultAddress = addresses.find((addr) => addr.is_default === true);
                 if (defaultAddress) {
                     setSelectedAddressId(defaultAddress.id);
-                    setFormData((prev) => ({
+                    setFormData(prev => ({
                         ...prev,
                         fullName: defaultAddress.full_name || prev.fullName,
                         phone: defaultAddress.phone || prev.phone,
@@ -146,7 +115,7 @@ function Checkout() {
                 } else if (addresses.length > 0) {
                     const firstAddress = addresses[0];
                     setSelectedAddressId(firstAddress.id);
-                    setFormData((prev) => ({
+                    setFormData(prev => ({
                         ...prev,
                         fullName: firstAddress.full_name || prev.fullName,
                         phone: firstAddress.phone || prev.phone,
@@ -167,7 +136,6 @@ function Checkout() {
         fetchUserData();
     }, [navigate, items.length]);
 
-    // Redirect if no items
     useEffect(() => {
         if (!orderPlaced && !loadingAddress) {
             if (isBuyNow && items.length === 0) {
@@ -180,7 +148,6 @@ function Checkout() {
         }
     }, [items, navigate, orderPlaced, loadingAddress, isBuyNow]);
 
-    // Calculate totals
     const subtotal = items.reduce((acc, item) => {
         return acc + (Number(item.product_price) || 0) * (item.quantity || 1);
     }, 0);
@@ -190,7 +157,6 @@ function Checkout() {
     const discount = subtotal > 10000 ? 1000 : subtotal > 5000 ? 500 : 0;
     const total = subtotal + shipping + tax - discount;
 
-    // Validation
     const validateField = (name, value) => {
         switch (name) {
             case 'fullName':
@@ -212,10 +178,17 @@ function Checkout() {
         }
     };
 
+    // ✅ FIXED: Using functional update to prevent typing issues
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData((prev) => ({ ...prev, [name]: value }));
-        setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
+        setFormData(prevFormData => ({
+            ...prevFormData,
+            [name]: value
+        }));
+        setErrors(prevErrors => ({
+            ...prevErrors,
+            [name]: validateField(name, value)
+        }));
 
         if (name === 'address' || name === 'city' || name === 'state' || name === 'pincode') {
             setSelectedAddressId(null);
@@ -226,7 +199,7 @@ function Checkout() {
         const selected = savedAddresses.find((addr) => addr.id === parseInt(addressId));
         if (selected) {
             setSelectedAddressId(selected.id);
-            setFormData((prev) => ({
+            setFormData(prev => ({
                 ...prev,
                 fullName: selected.full_name || prev.fullName,
                 phone: selected.phone || prev.phone,
@@ -267,25 +240,19 @@ function Checkout() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Clear items after order
     const clearAfterOrder = () => {
         if (isBuyNow) {
-            // ✅ Only clear Buy Now items - keep regular cart items
             if (clearBuyNowItems) {
                 clearBuyNowItems();
-                console.log('Cleared Buy Now items only, regular cart preserved');
                 showSuccess('Order placed! Your cart items are saved.');
             }
         } else {
-            // ✅ Regular checkout - clear everything
             if (clearCart) {
                 clearCart();
-                console.log('Cleared entire cart');
             }
         }
     };
 
-    // Place order (NO SOCKET ERRORS)
     const handlePlaceOrder = async () => {
         if (!validateStep()) {
             setStep(1);
@@ -308,13 +275,12 @@ function Checkout() {
         setErrorMessage('');
 
         try {
-            // Prepare items with images for order confirmation
             const orderItems = items.map((item) => ({
                 product: item.product_id || item.id,
                 quantity: item.quantity || 1,
                 price: item.product_price,
                 name: item.product_name,
-                image: getImageUrl(item), // ✅ FIXED: Store image URL for order confirmation
+                image: getImageUrl(item),
             }));
 
             const fullAddress = `${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}`;
@@ -336,24 +302,19 @@ function Checkout() {
                 },
             };
 
-            console.log('Placing order - Items with images:', orderItems);
-            console.log('Is Buy Now mode:', isBuyNow);
-
-            const response = await axios.post('http://127.0.0.1:8000/api/orders/create/', orderData, {
+            const response = await axios.post('/api/orders/create/', orderData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json',
                 },
             });
 
-            // In handlePlaceOrder function, when setting orderDetails:
             setOrderDetails({
                 orderId: response.data.order_id || `ORD${Math.floor(Math.random() * 1000000)}`,
                 total: total,
                 items: items.map((item) => ({
-                    // ✅ Make sure items are passed here
                     ...item,
-                    image_url: getImageUrl(item), // ✅ Add image_url
+                    image_url: getImageUrl(item),
                     product_name: item.product_name,
                     product_price: item.product_price,
                     quantity: item.quantity,
@@ -379,8 +340,7 @@ function Checkout() {
             setOrderPlaced(true);
         } catch (error) {
             console.error('Order error:', error);
-            const errorMsg =
-                error.response?.data?.message || error.response?.data?.error || 'Order failed. Please try again.';
+            const errorMsg = error.response?.data?.message || error.response?.data?.error || 'Order failed. Please try again.';
             setErrorMessage(errorMsg);
             showError(errorMsg);
         } finally {
@@ -397,23 +357,6 @@ function Checkout() {
         return <OrderConfirmation orderDetails={orderDetails} items={orderDetails.items} onClose={handleClosePopup} />;
     }
 
-    const InputField = ({ label, name, type = 'text', placeholder, value }) => (
-        <div>
-            <label className="block text-sm font-medium mb-1">{label} *</label>
-            <input
-                type={type}
-                name={name}
-                value={value}
-                onChange={handleChange}
-                placeholder={placeholder}
-                className={`w-full px-4 py-3 rounded-xl border ${
-                    errors[name] ? 'border-red-500 bg-red-50' : 'border-gray-200 focus:border-black'
-                } focus:outline-none focus:ring-2 focus:ring-black transition`}
-            />
-            {errors[name] && <p className="text-xs text-red-500 mt-1">{errors[name]}</p>}
-        </div>
-    );
-
     if (loadingAddress) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center pt-28">
@@ -425,7 +368,6 @@ function Checkout() {
         );
     }
 
-    // No items message for Buy Now
     if (isBuyNow && items.length === 0) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center pt-28">
@@ -435,9 +377,7 @@ function Checkout() {
                     </div>
                     <h2 className="text-2xl font-bold mb-2">No Buy Now Items</h2>
                     <p className="text-gray-500 mb-6">You don't have any Buy Now items to checkout.</p>
-                    <button
-                        onClick={() => navigate('/cart')}
-                        className="bg-black text-white px-6 py-3 rounded-full hover:bg-gray-800">
+                    <button onClick={() => navigate('/cart')} className="bg-black text-white px-6 py-3 rounded-full">
                         Go to Cart
                     </button>
                 </div>
@@ -445,7 +385,6 @@ function Checkout() {
         );
     }
 
-    // No items message for regular checkout
     if (!isBuyNow && items.length === 0) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center pt-28">
@@ -455,9 +394,7 @@ function Checkout() {
                     </div>
                     <h2 className="text-2xl font-bold mb-2">Your Cart is Empty</h2>
                     <p className="text-gray-500 mb-6">Add some items to your cart before checking out.</p>
-                    <button
-                        onClick={() => navigate('/products')}
-                        className="bg-black text-white px-6 py-3 rounded-full hover:bg-gray-800">
+                    <button onClick={() => navigate('/products')} className="bg-black text-white px-6 py-3 rounded-full">
                         Start Shopping
                     </button>
                 </div>
@@ -475,22 +412,18 @@ function Checkout() {
                     </div>
                     <h1 className="text-5xl md:text-6xl font-bold tracking-tight">CHECKOUT</h1>
                     {isBuyNow ? (
-                        <p className="text-blue-500 mt-2 flex items-center justify-center gap-1">
-                            <Zap size={14} /> You are purchasing {items.length} item(s) now. Your cart items are saved.
-                        </p>
+                        <p className="text-blue-500 mt-2">You are purchasing {items.length} item(s) now. Your cart items are saved.</p>
                     ) : (
                         <p className="text-gray-500 mt-2">You are purchasing {items.length} item(s) from your cart.</p>
                     )}
-                    <p className="text-gray-400 mt-1">Complete your order securely</p>
                 </div>
 
                 <div className="flex justify-center gap-8 mb-10">
                     {['Shipping', 'Payment', 'Review'].map((label, index) => (
                         <div key={index} className="flex items-center gap-2">
-                            <div
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                                    step === index + 1 ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'
-                                }`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                                step === index + 1 ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'
+                            }`}>
                                 {index + 1}
                             </div>
                             <span className={`text-sm ${step === index + 1 ? 'font-medium text-black' : 'text-gray-400'}`}>
@@ -527,47 +460,94 @@ function Checkout() {
                                             <option value="">Select a saved address</option>
                                             {savedAddresses.map((addr) => (
                                                 <option key={addr.id} value={addr.id}>
-                                                    {addr.is_default ? '⭐ ' : ''}
-                                                    {addr.address}, {addr.city} - {addr.pincode}
+                                                    {addr.is_default ? '⭐ ' : ''}{addr.address}, {addr.city} - {addr.pincode}
                                                 </option>
                                             ))}
                                         </select>
-                                        {selectedAddressId && (
-                                            <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                                                <CheckCircle size={12} /> Using selected address
-                                            </p>
-                                        )}
                                     </div>
                                 )}
 
                                 <div className="grid md:grid-cols-2 gap-4">
-                                    <InputField
-                                        label="Full Name"
-                                        name="fullName"
-                                        value={formData.fullName}
-                                        placeholder="John Doe"
-                                    />
-                                    <InputField
-                                        label="Email"
-                                        name="email"
-                                        type="email"
-                                        value={formData.email}
-                                        placeholder="john@example.com"
-                                    />
-                                    <InputField
-                                        label="Phone"
-                                        name="phone"
-                                        value={formData.phone}
-                                        placeholder="9876543210"
-                                    />
-                                    <InputField label="City" name="city" value={formData.city} placeholder="Mumbai" />
-                                    <InputField label="State" name="state" value={formData.state} placeholder="Kerala" />
-                                    <InputField
-                                        label="Pincode"
-                                        name="pincode"
-                                        value={formData.pincode}
-                                        placeholder="670101"
-                                    />
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Full Name *</label>
+                                        <input
+                                            type="text"
+                                            name="fullName"
+                                            value={formData.fullName}
+                                            onChange={handleChange}
+                                            placeholder="John Doe"
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-black focus:outline-none focus:ring-2 focus:ring-black"
+                                        />
+                                        {errors.fullName && <p className="text-xs text-red-500 mt-1">{errors.fullName}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Email *</label>
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={formData.email}
+                                            onChange={handleChange}
+                                            placeholder="john@example.com"
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-black focus:outline-none focus:ring-2 focus:ring-black"
+                                        />
+                                        {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Phone *</label>
+                                        <input
+                                            type="tel"
+                                            name="phone"
+                                            value={formData.phone}
+                                            onChange={handleChange}
+                                            placeholder="9876543210"
+                                            maxLength="10"
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-black focus:outline-none focus:ring-2 focus:ring-black"
+                                        />
+                                        {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">City *</label>
+                                        <input
+                                            type="text"
+                                            name="city"
+                                            value={formData.city}
+                                            onChange={handleChange}
+                                            placeholder="Mumbai"
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-black focus:outline-none focus:ring-2 focus:ring-black"
+                                        />
+                                        {errors.city && <p className="text-xs text-red-500 mt-1">{errors.city}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">State *</label>
+                                        <input
+                                            type="text"
+                                            name="state"
+                                            value={formData.state}
+                                            onChange={handleChange}
+                                            placeholder="Maharashtra"
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-black focus:outline-none focus:ring-2 focus:ring-black"
+                                        />
+                                        {errors.state && <p className="text-xs text-red-500 mt-1">{errors.state}</p>}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Pincode *</label>
+                                        <input
+                                            type="text"
+                                            name="pincode"
+                                            value={formData.pincode}
+                                            onChange={handleChange}
+                                            placeholder="400001"
+                                            maxLength="6"
+                                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-black focus:outline-none focus:ring-2 focus:ring-black"
+                                        />
+                                        {errors.pincode && <p className="text-xs text-red-500 mt-1">{errors.pincode}</p>}
+                                    </div>
+
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium mb-1">Address *</label>
                                         <textarea
@@ -595,7 +575,7 @@ function Checkout() {
                                     ].map((option) => (
                                         <button
                                             key={option.id}
-                                            onClick={() => setFormData((prev) => ({ ...prev, paymentMethod: option.id }))}
+                                            onClick={() => setFormData(prev => ({ ...prev, paymentMethod: option.id }))}
                                             className={`p-4 rounded-xl border-2 transition ${
                                                 formData.paymentMethod === option.id
                                                     ? 'border-black bg-black text-white'
@@ -613,31 +593,25 @@ function Checkout() {
                             <div className="border border-gray-200 rounded-2xl p-6 shadow-sm">
                                 <h2 className="text-2xl font-bold mb-5">Review Your Order</h2>
                                 <div className="space-y-4">
-                                    {items.map((item, idx) => {
-                                        const imageUrl = getImageUrl(item); // ✅ FIXED: Use the helper function
-
-                                        return (
-                                            <div key={idx} className="flex justify-between items-center border-b pb-4">
-                                                <div className="flex gap-3">
-                                                    <img
-                                                        src={imageUrl}
-                                                        alt={item.product_name}
-                                                        className="w-16 h-16 object-cover rounded-lg"
-                                                        onError={(e) => {
-                                                            e.target.src = 'https://via.placeholder.com/60x60?text=Product';
-                                                        }}
-                                                    />
-                                                    <div>
-                                                        <p className="font-medium">{item.product_name}</p>
-                                                        <p className="text-sm text-gray-400">Qty: {item.quantity || 1}</p>
-                                                    </div>
+                                    {items.map((item, idx) => (
+                                        <div key={idx} className="flex justify-between items-center border-b pb-4">
+                                            <div className="flex gap-3">
+                                                <img
+                                                    src={getImageUrl(item)}
+                                                    alt={item.product_name}
+                                                    className="w-16 h-16 object-cover rounded-lg"
+                                                    onError={(e) => { e.target.src = '/static/logo.png'; }}
+                                                />
+                                                <div>
+                                                    <p className="font-medium">{item.product_name}</p>
+                                                    <p className="text-sm text-gray-400">Qty: {item.quantity || 1}</p>
                                                 </div>
-                                                <p className="font-bold">
-                                                    ₹{((item.product_price || 0) * (item.quantity || 1)).toLocaleString()}
-                                                </p>
                                             </div>
-                                        );
-                                    })}
+                                            <p className="font-bold">
+                                                ₹{((item.product_price || 0) * (item.quantity || 1)).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    ))}
                                 </div>
                                 <div className="mt-6 p-4 bg-gray-50 rounded-xl">
                                     <p className="font-medium mb-2">Shipping to:</p>
@@ -654,28 +628,18 @@ function Checkout() {
 
                         <div className="flex gap-4">
                             {step > 1 && (
-                                <button
-                                    onClick={handleBack}
-                                    className="px-8 py-3 border border-gray-300 rounded-xl hover:bg-gray-50">
+                                <button onClick={handleBack} className="px-8 py-3 border border-gray-300 rounded-xl hover:bg-gray-50">
                                     Back
                                 </button>
                             )}
                             {step < 3 ? (
-                                <button
-                                    onClick={handleNext}
-                                    className="flex-1 bg-black text-white py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800">
+                                <button onClick={handleNext} className="flex-1 bg-black text-white py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800">
                                     Continue <ArrowRight size={16} />
                                 </button>
                             ) : (
-                                <button
-                                    onClick={handlePlaceOrder}
-                                    disabled={loading}
-                                    className="flex-1 bg-black text-white py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 disabled:opacity-50">
+                                <button onClick={handlePlaceOrder} disabled={loading} className="flex-1 bg-black text-white py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 disabled:opacity-50">
                                     {loading ? (
-                                        <>
-                                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            Processing...
-                                        </>
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                     ) : (
                                         <>
                                             <Lock size={16} /> Place Order
@@ -715,15 +679,9 @@ function Checkout() {
                                 <span className="text-2xl font-bold">₹{total.toLocaleString()}</span>
                             </div>
                             <div className="space-y-2 text-xs text-gray-400">
-                                <div className="flex items-center gap-2">
-                                    <ShieldCheck size={12} /> Secure Checkout
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Truck size={12} /> Free Delivery on orders above ₹5000
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Clock size={12} /> 30 Days Easy Returns
-                                </div>
+                                <div className="flex items-center gap-2"><ShieldCheck size={12} /> Secure Checkout</div>
+                                <div className="flex items-center gap-2"><Truck size={12} /> Free Delivery on orders above ₹5000</div>
+                                <div className="flex items-center gap-2"><Clock size={12} /> 30 Days Easy Returns</div>
                             </div>
                         </div>
                     </div>

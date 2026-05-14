@@ -108,7 +108,7 @@ function EditProduct() {
             });
 
             if (product.image) {
-                const imageUrl = product.image.startsWith('http') ? product.image : `http://127.0.0.1:8000${product.image}`;
+                const imageUrl = product.image.startsWith('http') ? product.image : `${product.image}`;
                 setCurrentImage(imageUrl);
                 setImagePreview(imageUrl);
             }

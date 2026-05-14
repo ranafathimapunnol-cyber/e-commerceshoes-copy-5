@@ -12,7 +12,7 @@ function Hero() {
         <section className="relative h-screen w-full overflow-hidden">
             {/* VIDEO */}
             <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover">
-                <source src="/videos/shoes.mp4" type="video/mp4" />
+                <source src="/static/media/products/videos/shoes.mp4" type="video/mp4" />
             </video>
 
             {/* OVERLAY */}

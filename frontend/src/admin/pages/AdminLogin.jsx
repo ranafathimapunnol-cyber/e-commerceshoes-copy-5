@@ -18,7 +18,7 @@ function AdminLogin() {
 
         try {
             // ✅ UPDATED: Use admin-specific login endpoint
-            const response = await axios.post('http://127.0.0.1:8000/api/users/admin-login/', {
+            const response = await axios.post('/api/users/admin-login/', {
                 username: username,
                 password: password,
             });

@@ -12,7 +12,7 @@ const NotificationBell = () => {
     const { socket, isConnected } = useSocket();
 
     const getToken = () => localStorage.getItem('admin_access');
-    const API_BASE = 'http://127.0.0.1:8000/api/notifications';
+    const API_BASE = '/api/notifications';
 
     // Play notification sound
     const playSound = () => {

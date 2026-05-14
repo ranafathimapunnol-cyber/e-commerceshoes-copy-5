@@ -40,14 +40,14 @@ function Register() {
             setLoading(true);
 
             // 1️⃣ REGISTER
-            await axios.post('http://127.0.0.1:8000/api/users/register/', {
+            await axios.post('/api/users/register/', {
                 username: formData.username,
                 email: formData.email,
                 password: formData.password,
             });
 
             // 2️⃣ LOGIN - ✅ FIXED ENDPOINT (use /api/token/ instead of /api/users/login/)
-            const loginRes = await axios.post('http://127.0.0.1:8000/api/token/', {
+            const loginRes = await axios.post('/api/token/', {
                 username: formData.username,
                 password: formData.password,
             });

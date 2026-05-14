@@ -119,7 +119,7 @@ function ProductsAdmin() {
     const getImageUrl = (imagePath) => {
         if (!imagePath) return null;
         if (imagePath.startsWith('http')) return imagePath;
-        return `http://127.0.0.1:8000${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`;
+        return `${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`;
     };
 
     const formatPrice = (price) => {
