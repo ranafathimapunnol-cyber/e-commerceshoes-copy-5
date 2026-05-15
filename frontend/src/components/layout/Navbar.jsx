@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag, Heart, User, ChevronDown } from 'lucide-react';
@@ -56,9 +53,9 @@ function PremiumBlackWhiteNavbar() {
         const updateColor = () => {
             const scrollY = window.scrollY;
 
-            if (scrollY < 745) setNavTextColor('white');
-            else if (scrollY < 2120) setNavTextColor('black');
-            else if (scrollY < 3685) setNavTextColor('white');
+            if (scrollY < 725) setNavTextColor('white');
+            else if (scrollY < 2095) setNavTextColor('black');
+            else if (scrollY < 3675) setNavTextColor('white');
             else setNavTextColor('black');
         };
 
